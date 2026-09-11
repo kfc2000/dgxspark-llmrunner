@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
+import _bootstrap  # noqa: F401  (adds repo root to sys.path)
 import streamlit as st
 
 from llmrunner import config, llm_metrics

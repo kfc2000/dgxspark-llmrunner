@@ -26,8 +26,14 @@ class LLMConfig:
     raw: dict = field(default_factory=dict, repr=False)
 
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
 def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> list[LLMConfig]:
     path = Path(path)
+    if not path.is_absolute():
+        candidates = [path, _REPO_ROOT / path]
+        path = next((c for c in candidates if c.exists()), candidates[0])
     if not path.exists():
         return []
     try:

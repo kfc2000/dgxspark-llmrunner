@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import _bootstrap  # noqa: F401  (adds repo root to sys.path)
 import streamlit as st
 
 from llmrunner import config, control, llm_metrics
