@@ -71,8 +71,12 @@ def render_hardware() -> None:
             f"of {(gpu.mem_total_mb or 0) / 1024:.0f} GiB",
         )
     else:
+        from llmrunner.hw_metrics import _nvml
+
         st.warning(
-            "GPU metrics unavailable via NVML. Check the NVIDIA driver, or expose sensors through "
+            "GPU metrics unavailable via NVML"
+            + (f" ({_nvml.error})" if _nvml.error else "")
+            + ". Check the NVIDIA driver, or expose sensors through "
             "/sys/class/hwmon (read by the CPU temperature/power probes)."
         )
 

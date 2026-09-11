@@ -29,21 +29,25 @@ class _NvmlProbe:
         self.handle = None
         self.name = ""
         self.ok = False
+        self.error = ""
         if pynvml is None:
+            self.error = "pynvml module not installed (pip install nvidia-ml-py)"
             return
         try:
-            self.nv = pynvml.NVML()
+            self.nv = pynvml.NVML() if hasattr(pynvml, "NVML") else pynvml
             self.nv.nvmlInit()
             count = self.nv.nvmlDeviceGetCount()
             if count < 1:
+                self.error = "NVML reports 0 devices"
                 self.nv = None
                 return
             self.handle = self.nv.nvmlDeviceGetHandleByIndex(0)
             self.name = self.nv.nvmlDeviceGetName(self.handle)
             self.ok = True
-        except Exception:
+        except Exception as exc:
             self.nv = None
             self.ok = False
+            self.error = f"{type(exc).__name__}: {exc} (module: {getattr(pynvml, '__file__', '?')})"
 
     def read(self) -> GpuStat | None:
         if not self.ok or self.nv is None or self.handle is None:
@@ -53,7 +57,9 @@ class _NvmlProbe:
             stat.util_pct = float(
                 self.nv.nvmlDeviceGetUtilizationRates(self.handle).gpu
                 if hasattr(self.nv, "nvmlDeviceGetUtilizationRates")
-                else self.nv.nvmlDeviceGetUtilization(self.handle, pynvml.NVML_UTILIZATION_GPU)
+                else self.nv.nvmlDeviceGetUtilization(
+                    self.handle, getattr(pynvml, "NVML_UTILIZATION_GPU", 1)
+                )
             )
         except Exception:
             pass
