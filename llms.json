@@ -1,0 +1,22 @@
+{
+  "llms": [
+    {
+      "name": "qwen3-32b",
+      "type": "docker_vllm",
+      "workdir": "/home/kfc/llms/qwen3-32b",
+      "start_script": "./start.sh",
+      "stop_script": "./stop.sh",
+      "endpoint": "http://localhost:8000",
+      "container": "vllm-qwen3"
+    },
+    {
+      "name": "gpt-oss-20b",
+      "type": "docker_sglang",
+      "workdir": "/home/kfc/llms/gpt-oss-20b",
+      "start_script": "./start.sh",
+      "stop_script": "./stop.sh",
+      "endpoint": "http://localhost:30000",
+      "container": "sglang-gpt-oss"
+    }
+  ]
+}

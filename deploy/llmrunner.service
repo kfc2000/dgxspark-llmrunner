@@ -1,0 +1,15 @@
+[Unit]
+Description=DGX Spark LLM Runner (Streamlit dashboard)
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__INSTALL_DIR__
+Environment=LLMRUNNER_CONFIG=__INSTALL_DIR__/llms.json
+ExecStart=__INSTALL_DIR__/.venv/bin/streamlit run dashboard/main.py --server.headless=true --server.address=0.0.0.0 --server.port=8501 --server.fileWatcherType=none
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,4 @@
+streamlit>=1.41
+psutil>=6.0
+pynvml>=12.565
+requests>=2.31
