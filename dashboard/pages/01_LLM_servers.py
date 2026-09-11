@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 import _bootstrap  # noqa: F401  (adds repo root to sys.path)
 import streamlit as st
 
@@ -27,6 +29,32 @@ if "llm_action_result" not in st.session_state:
     st.session_state.llm_action_result = {}
 
 LOG_TAIL_CHOICES = {lbl: n for lbl, n in zip(("100", "300", "1000", "5000"), (100, 300, 1000, 5000), strict=True)}
+LOG_VIEW_HEIGHT = 350
+
+
+def _render_logs_html(logs: str) -> str:
+    escaped = html.escape(logs) or "(no output)"
+    return (
+        "<style>"
+        "html,body{margin:0;background:#0e1117;color:#d5d8dd;"
+        "font:12px/1.5 'SFMono-Regular',Menlo,Consolas,monospace}"
+        "pre{margin:0;padding:8px;white-space:pre;overflow-x:auto}"
+        "</style>"
+        f"<pre>{escaped}</pre>"
+        "<script>window.addEventListener('load',function(){"
+        "var e=document.scrollingElement||document.documentElement;"
+        "e.scrollTop=e.scrollHeight});</script>"
+    )
+
+
+def view_logs(container: str, tail: int) -> None:
+    try:
+        logs = control.container_logs(container, tail)
+    except control.ControlError as exc:
+        st.error(str(exc))
+        return
+    st.caption(f"{len(logs.splitlines())} lines")
+    st.html(_render_logs_html(logs), height=LOG_VIEW_HEIGHT)
 
 
 def render_llm(llm: config.LLMConfig) -> None:
@@ -75,20 +103,15 @@ def render_llm(llm: config.LLMConfig) -> None:
 
         if llm.container:
             tail = st.selectbox("Log lines", list(LOG_TAIL_CHOICES), index=1, key=f"tail_{llm.name}")
-            if st.button("Load logs", key=f"logs_{llm.name}"):
-                try:
-                    logs = control.container_logs(llm.container, LOG_TAIL_CHOICES[tail])
-                    if logs.strip():
-                        st.session_state.setdefault("llm_logs", {})[llm.name] = logs
-                    else:
-                        st.session_state.setdefault("llm_logs", {})[llm.name] = "(no output)"
-                except control.ControlError as exc:
-                    st.session_state.setdefault("llm_logs", {})[llm.name] = f"error: {exc}"
-            logs = st.session_state.get("llm_logs", {}).get(llm.name)
-            if logs:
-                n_lines = logs.count("\n") + (1 if logs else 0)
-                st.caption(f"{n_lines} lines")
-                st.code(logs, language="log")
+            auto = st.toggle("Auto refresh (5s)", value=True, key=f"autologs_{llm.name}")
+
+            def log_view(tail_label: str = tail, container: str = llm.container) -> None:
+                view_logs(container, LOG_TAIL_CHOICES[tail_label])
+
+            if auto:
+                st.fragment(log_view, run_every="5s")()
+            else:
+                log_view()
         else:
             st.caption("Set `container` in llms.json to view docker logs.")
 
