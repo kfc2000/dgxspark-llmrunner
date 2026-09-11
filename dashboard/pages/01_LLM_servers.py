@@ -54,7 +54,10 @@ def view_logs(container: str, tail: int) -> None:
         st.error(str(exc))
         return
     st.caption(f"{len(logs.splitlines())} lines")
-    st.html(_render_logs_html(logs), height=LOG_VIEW_HEIGHT)
+    try:
+        st.html(_render_logs_html(logs), height=LOG_VIEW_HEIGHT)
+    except TypeError:
+        st.code(logs, language="log")
 
 
 def render_llm(llm: config.LLMConfig) -> None:
