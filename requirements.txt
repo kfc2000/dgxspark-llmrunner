@@ -1,4 +1,4 @@
 streamlit>=1.63
 psutil>=6.0
-pynvml>=12.565
+nvidia-ml-py>=12.565
 requests>=2.31
