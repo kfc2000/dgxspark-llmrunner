@@ -2,7 +2,7 @@
 set -euo pipefail
 
 INSTALL_DIR="${1:-$HOME/llmrunner}"
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 python3 -m venv "$INSTALL_DIR/.venv"
 "$INSTALL_DIR/.venv/bin/pip" install --upgrade -q pip
@@ -20,7 +20,7 @@ rsync -a --delete "${rsync_excludes[@]}" \
 
 service_file=/etc/systemd/system/llmrunner.service
 sed -e "s|__USER__|$(id -un)|" -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" \
-  "$REPO_DIR/deploy/llmrunner.service" | sudo tee "$service_file" >/dev/null
+  "$REPO_DIR/llmrunner.service" | sudo tee "$service_file" >/dev/null
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now llmrunner

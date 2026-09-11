@@ -22,8 +22,8 @@ page for:
 | `llmrunner/sampler.py` | Background thread collecting hardware samples (history ring buffer) |
 | `llmrunner/llm_metrics.py` | Prometheus parser + rate computer for token throughput |
 | `llmrunner/control.py` | Docker status, container logs, bash script runner |
-| `deploy/install.sh` | One-shot installer for the Spark (venv + rsync + systemd) |
-| `deploy/llmrunner.service` | systemd unit template |
+| `install.sh` | One-shot installer for the Spark (venv + rsync + systemd) |
+| `llmrunner.service` | systemd unit template |
 
 ## Configuration: `llms.json`
 
@@ -87,7 +87,7 @@ Then:
 
 ```bash
 git clone <your-fork> && cd dgxspark-llmrunner
-./deploy/install.sh            # optional arg: install dir (default ~/llmrunner)
+./install.sh                   # optional arg: install dir (default ~/llmrunner)
 ```
 
 The installer creates a venv, installs dependencies, copies the app to `~/llmrunner`,
@@ -98,14 +98,14 @@ enables it. The dashboard is then served on all interfaces at port **8501**:
 http://<spark-ip>:8501        # or via Tailscale
 ```
 
-Re-run `./deploy/install.sh` after pulling changes — it is idempotent and restarts the service.
+Re-run `./install.sh` after pulling changes — it is idempotent and restarts the service.
 Logs: `journalctl -u llmrunner -f`. Disable with `sudo systemctl disable --now llmrunner`.
 
 ### Which `llms.json` does the service use?
 
 The generated unit hardcodes `Environment=LLMRUNNER_CONFIG=<install-dir>/llms.json`, so
 after installing you configure LLMs by editing **`~/llmrunner/llms.json`** on the Spark
-(`sudo systemctl restart llmrunner` afterwards). `deploy/install.sh` seeds this file from
+(`sudo systemctl restart llmrunner` afterwards). `install.sh` seeds this file from
 the repo's `llms.json` on first install and leaves it alone on re-installs, so your edits
 survive updates. To use a config file elsewhere, edit
 `Environment=LLMRUNNER_CONFIG=...` in the unit (`sudo systemctl edit llmrunner`).
