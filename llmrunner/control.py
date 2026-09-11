@@ -35,8 +35,13 @@ def container_status(name: str) -> str | None:
     return line[0] if line else None
 
 
+def _normalize_log_stream(raw: str) -> str:
+    return raw.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def container_logs(name: str, tail: int = 300) -> str:
-    return _docker(["logs", "--tail", str(tail), name], timeout=30.0)
+    raw = _docker(["logs", "--tail", str(tail), name], timeout=30.0)
+    return _normalize_log_stream(raw)
 
 
 def running_containers() -> list[str]:
