@@ -8,8 +8,13 @@ python3 -m venv "$INSTALL_DIR/.venv"
 "$INSTALL_DIR/.venv/bin/pip" install --upgrade -q pip
 "$INSTALL_DIR/.venv/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
 
-rsync -a --delete \
-  --exclude .venv --exclude .git --exclude '__pycache__' \
+rsync_excludes=(--exclude .venv --exclude .git --exclude '__pycache__')
+if [[ -f "$INSTALL_DIR/llms.json" ]]; then
+  rsync_excludes+=(--exclude llms.json)
+  echo "Keeping existing $INSTALL_DIR/llms.json (not overwriting)"
+fi
+
+rsync -a --delete "${rsync_excludes[@]}" \
   "$REPO_DIR/dashboard" "$REPO_DIR/llmrunner" "$REPO_DIR/llms.json" \
   "$INSTALL_DIR/"
 

@@ -101,7 +101,13 @@ http://<spark-ip>:8501        # or via Tailscale
 Re-run `./deploy/install.sh` after pulling changes — it is idempotent and restarts the service.
 Logs: `journalctl -u llmrunner -f`. Disable with `sudo systemctl disable --now llmrunner`.
 
-If you keep your config elsewhere, point the service at it by editing
+### Which `llms.json` does the service use?
+
+The generated unit hardcodes `Environment=LLMRUNNER_CONFIG=<install-dir>/llms.json`, so
+after installing you configure LLMs by editing **`~/llmrunner/llms.json`** on the Spark
+(`sudo systemctl restart llmrunner` afterwards). `deploy/install.sh` seeds this file from
+the repo's `llms.json` on first install and leaves it alone on re-installs, so your edits
+survive updates. To use a config file elsewhere, edit
 `Environment=LLMRUNNER_CONFIG=...` in the unit (`sudo systemctl edit llmrunner`).
 
 ### Manual run (no systemd)
