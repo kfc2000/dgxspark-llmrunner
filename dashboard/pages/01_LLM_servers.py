@@ -86,7 +86,9 @@ def render_llm(llm: config.LLMConfig) -> None:
                     st.session_state.setdefault("llm_logs", {})[llm.name] = f"error: {exc}"
             logs = st.session_state.get("llm_logs", {}).get(llm.name)
             if logs:
-                st.code(logs[-6000:], language="log")
+                n_lines = logs.count("\n") + (1 if logs else 0)
+                st.caption(f"{n_lines} lines")
+                st.code(logs, language="log")
         else:
             st.caption("Set `container` in llms.json to view docker logs.")
 
