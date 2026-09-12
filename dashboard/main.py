@@ -392,7 +392,7 @@ def render_hero() -> None:
     hero = st.container(horizontal=True)
     names = [llm.name for llm in llms]
 
-    side = hero.column(0)
+    side, prefill_col, decode_col, chart_col = hero.columns([5, 2, 2, 6])
     if not names:
         with side:
             st.info(f"No LLMs configured. Create `{config.DEFAULT_CONFIG_PATH}` (see repo `llms.json`).")
@@ -445,11 +445,11 @@ def render_hero() -> None:
     decode = rates.decode_tps if rates and reachable else None
     prefill = rates.prefill_tps if rates and reachable else None
     history_points = list(rates.history) if rates and reachable else []
-    with hero.column(1):
+    with prefill_col:
         st.markdown(_throughput_col("Prefill", prefill, history_points, "prefill_tps"), unsafe_allow_html=True)
-    with hero.column(2):
+    with decode_col:
         st.markdown(_throughput_col("Decode", decode, history_points, "decode_tps"), unsafe_allow_html=True)
-    with hero.column(3):
+    with chart_col:
         st.markdown(
             '<div class="lr-legend">'
             '<span><span class="sw decode"></span><b>decode</b> tok/s</span>'
