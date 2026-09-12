@@ -101,11 +101,19 @@ def run_script(script: str, workdir: str, timeout: float | None = 120.0) -> tupl
     return proc.returncode, output
 
 
-def start_llm(llm: LLMConfig) -> tuple[bool, str]:
+def stop_llm(llm: LLMConfig) -> tuple[bool, str]:
+    rc, output = run_script(llm.stop_script, llm.workdir)
+    return rc == 0, output or (f"exit {rc}" if rc else "stopped")
+
+
+def start_llm(llm: LLMConfig, stop_first: list[LLMConfig] | None = None) -> tuple[bool, str]:
+    for other in stop_first or []:
+        ok, output = stop_llm(other)
+        if not ok:
+            return False, f"aborted: could not stop running model {other.name!r}: {output}"
     rc, output = run_script(llm.start_script, llm.workdir, timeout=START_TIMEOUT_S)
     return rc == 0, output or (f"exit {rc}" if rc else "started")
 
 
-def stop_llm(llm: LLMConfig) -> tuple[bool, str]:
-    rc, output = run_script(llm.stop_script, llm.workdir)
-    return rc == 0, output or (f"exit {rc}" if rc else "stopped")
+def running_llms(llms: list[LLMConfig]) -> list[LLMConfig]:
+    return [llm for llm in llms if is_llm_running(llm)[0]]

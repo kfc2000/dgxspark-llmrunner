@@ -1,4 +1,5 @@
-from llmrunner.control import START_TIMEOUT_S, container_logs
+from llmrunner.config import LLMConfig
+from llmrunner.control import START_TIMEOUT_S, container_logs, running_llms, start_llm
 
 
 class _FakeResult:
@@ -35,3 +36,50 @@ def test_container_logs_all(monkeypatch) -> None:
 
 def test_start_timeout_is_30_minutes() -> None:
     assert START_TIMEOUT_S == 30 * 60
+
+
+def _llm(name: str) -> LLMConfig:
+    return LLMConfig(
+        name=name,
+        type="docker_vllm",
+        workdir="/tmp",
+        start_script=f"./start_{name}.sh",
+        stop_script=f"./stop_{name}.sh",
+    )
+
+
+def test_start_llm_stops_others_first(monkeypatch) -> None:
+    seen: list[str] = []
+
+    def fake_run_script(script, workdir, timeout=None):  # noqa: ANN001
+        seen.append(script)
+        return (0, "")
+
+    monkeypatch.setattr("llmrunner.control.run_script", fake_run_script)
+    ok, output = start_llm(_llm("b"), stop_first=[_llm("a")])
+    assert ok
+    assert output == "started"
+    assert seen == ["./stop_a.sh", "./start_b.sh"]
+
+
+def test_start_llm_aborts_when_stop_fails(monkeypatch) -> None:
+    seen: list[str] = []
+
+    def fake_run_script(script, workdir, timeout=None):  # noqa: ANN001
+        seen.append(script)
+        return (1, "stop failed") if "stop" in script else (0, "")
+
+    monkeypatch.setattr("llmrunner.control.run_script", fake_run_script)
+    ok, output = start_llm(_llm("b"), stop_first=[_llm("a")])
+    assert not ok
+    assert "could not stop" in output and "a" in output
+    assert seen == ["./stop_a.sh"]
+
+
+def test_running_llms_filters_by_status(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "llmrunner.control.is_llm_running",
+        lambda llm: (llm.name == "a", "up"),
+    )
+    out = running_llms([_llm("a"), _llm("b")])
+    assert [llm.name for llm in out] == ["a"]

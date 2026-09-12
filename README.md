@@ -9,14 +9,16 @@ page for:
 - **LLM metrics** — decode (generation) and prefill tokens/sec, scraped from each server's
   Prometheus `/metrics` endpoint. Supports `docker_vllm` and `docker_sglang`.
 - **Server control** — start/stop each LLM by running its configured bash scripts, see
-  container status and `docker logs` in the browser.
+  container status and `docker logs` in the browser. **Single-model mode:** only one LLM can
+  run at a time (the GB10 can't hold two large models); starting a model stops any loaded
+  one first, and the start aborts if that stop fails.
 
 ## Screens / files
 
 | Path | Purpose |
 |---|---|
 | `dashboard/main.py` | Streamlit entry point: hardware + throughput dashboard (auto-refreshing) |
-| `dashboard/pages/01_LLM_servers.py` | Start/Stop buttons and log viewer per LLM |
+| `dashboard/pages/01_LLM_servers.py` | One model at a time: pick a model, swap/stop it, log viewer |
 | `llmrunner/config.py` | Loads/validates `llms.json` |
 | `llmrunner/hw_metrics.py` | NVML (GPU) + psutil + `/sys/class/hwmon` (CPU temp/power) probes |
 | `llmrunner/sampler.py` | Background thread collecting hardware samples (history ring buffer) |
