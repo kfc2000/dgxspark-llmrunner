@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DGX Spark · LLM Runner — Prototype</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --panel-2: #161b26;
+    --border: #1f2635;
+    --border-hi: #2c3547;
+    --text: #e6ebf3;
+    --muted: #8a93a6;
+    --faint: #5b6373;
+    --accent: #4f8cff;
+    --accent-2: #8b5cf6;
+    --ok: #2dd4a7;
+    --warn: #ffb454;
+    --err: #ff5d73;
+    --hover: #1b2231;
+    --hover-border: #3d4c6b;
+    --menu-bg: #141926;
+    --sel-bg-1: #1c2a4a;
+    --sel-bg-2: #172138;
+    --sel-border: #34548f;
+    --chip-bg: #0e1119;
+    --glow-1: rgba(79,140,255,.09);
+    --glow-2: rgba(139,92,246,.07);
+    --radius: 14px;
+    color-scheme: dark;
+    font-size: 15px;
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f5f9;
+    --panel: #ffffff;
+    --panel-2: #ffffff;
+    --border: #e2e7ef;
+    --border-hi: #ccd5e2;
+    --text: #17202f;
+    --muted: #5a6474;
+    --faint: #8a93a3;
+    --accent: #2f6fed;
+    --accent-2: #7a45e0;
+    --ok: #0da27d;
+    --warn: #c97a10;
+    --err: #d63a58;
+    --hover: #eef1f7;
+    --hover-border: #b7c4d8;
+    --menu-bg: #ffffff;
+    --sel-bg-1: #e6efff;
+    --sel-bg-2: #eef4ff;
+    --sel-border: #9db9ea;
+    --chip-bg: #eef1f6;
+    --glow-1: rgba(47,111,237,.07);
+    --glow-2: rgba(122,69,224,.05);
+    --shadow: rgba(30,50,90,.18);
+    color-scheme: light;
+  }
+  body { transition: background-color .25s, color .25s; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(1200px 500px at 80% -10%, var(--glow-1), transparent 60%),
+      radial-gradient(900px 420px at -10% 110%, var(--glow-2), transparent 60%);
+    color: var(--text);
+    font: 400 15px/1.45 "Inter", "SF Pro Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 14px 24px 18px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ---------- top bar ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 650; font-size: 17px; letter-spacing: .2px;
+  }
+  .brand .logo {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    font-size: 15px; color: #fff;
+    box-shadow: 0 4px 18px rgba(79,140,255,.35);
+  }
+  .brand small { color: var(--muted); font-weight: 450; }
+  .live {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 10px; background: var(--panel);
+  }
+  .live i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ok); box-shadow: 0 0 8px var(--ok);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .spacer { flex: 1; }
+
+  /* ---------- model dropdown ---------- */
+  .select { position: relative; }
+  .select > summary {
+    list-style: none;
+    display: inline-flex; align-items: center; gap: 10px;
+    min-width: 240px;
+    background: var(--panel);
+    border: 1px solid var(--border-hi);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13.5px; font-weight: 600; cursor: pointer;
+    user-select: none;
+  }
+  .select > summary::-webkit-details-marker { display: none; }
+  .select > summary:hover { border-color: var(--hover-border); }
+  .select[open] > summary { border-color: var(--accent); }
+  .select .caret {
+    margin-left: auto; width: 9px; height: 9px;
+    border: solid var(--muted); border-width: 0 0 2px 2px;
+    transform: rotate(-45deg) translateY(-2px);
+    transition: transform .2s;
+  }
+  .select[open] .caret { transform: rotate(135deg) translateY(-2px); }
+  .select .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .select .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .select .tag {
+    font-size: 10px; font-weight: 600; letter-spacing: .5px;
+    color: var(--faint); text-transform: uppercase;
+  }
+
+  .menu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+    width: 380px; max-height: 340px; overflow: auto;
+    background: var(--menu-bg);
+    border: 1px solid var(--border-hi);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 18px 50px var(--shadow, rgba(0,0,0,.55));
+  }
+  .menu .group {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--faint);
+    padding: 8px 10px 5px;
+  }
+  .opt {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center; gap: 10px;
+    padding: 9px 10px;
+    border-radius: 9px; cursor: pointer;
+  }
+  .opt:hover { background: var(--hover); }
+  .opt input { display: none; }
+  .opt .name {
+    font-size: 13.5px; font-weight: 600;
+    display: block; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .opt .ep { font-size: 11.5px; color: var(--faint); font-weight: 450; }
+  .opt .state {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 999px;
+  }
+  .state.running {
+    color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  }
+  .state.stopped { color: var(--faint); background: var(--chip-bg); border: 1px solid var(--border); }
+  .opt:has(input:checked) {
+    background: linear-gradient(180deg, var(--sel-bg-1), var(--sel-bg-2));
+    outline: 1px solid var(--sel-border);
+  }
+  .opt:has(input:checked) .name { color: var(--accent); }
+  .menu .hint {
+    font-size: 11px; color: var(--faint);
+    padding: 8px 10px 6px; border-top: 1px solid var(--border);
+    margin-top: 6px;
+  }
+
+  .btn {
+    font: inherit; font-size: 13.5px; font-weight: 600;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--border-hi);
+    border-radius: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--hover-border); background: var(--hover); }
+  .btn.danger-ghost {
+    color: var(--err);
+    border-color: color-mix(in srgb, var(--err) 40%, transparent);
+    background: color-mix(in srgb, var(--err) 8%, var(--panel));
+  }
+  .btn.danger-ghost:hover { border-color: color-mix(in srgb, var(--err) 65%, transparent); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), #3a6fe0);
+    border-color: transparent; color: #fff;
+    box-shadow: 0 4px 16px rgba(79,140,255,.3);
+  }
+
+
+  /* ---------- grid ---------- */
+  main { display: flex; flex-direction: column; gap: 10px; }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .row.two { grid-template-columns: repeat(2, 1fr); }
+  .row.row-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .card {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px 6px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: var(--border-hi); }
+  .card .head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .card .label {
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: .8px; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .card .sub { font-size: 11.5px; color: var(--faint); }
+  .value {
+    font-size: 21px; font-weight: 680; letter-spacing: -.5px;
+    line-height: 1.15;
+  }
+  .value small { font-size: 12.5px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+  .spark { display: block; width: 100%; height: 38px; margin-top: 4px; }
+
+  /* ---------- LLM hero panel ---------- */
+  .llm {
+    display: grid;
+    grid-template-columns: 380px auto auto minmax(0, 1fr);
+    gap: 0;
+    overflow: visible; /* let the model menu escape the card */
+  }
+  .llm .side {
+    padding: 18px 14px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;     gap: 15px;
+    justify-content: center;
+  }
+  /* model dropdown acting as the card title */
+  .model-title { align-self: stretch; }
+  .model-title > summary {
+    font-size: 17px; font-weight: 680; letter-spacing: -.2px;
+    padding: 6px 10px; min-width: 0;
+    display: flex; /* #selName can shrink + ellipsis */
+  }
+  .model-title > summary #selName {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .model-title .menu { left: 0; right: auto; width: min(460px, 92vw); }
+  .llm .actions { display: flex; align-items: stretch; gap: 8px; }
+  .llm .actions .status { margin-right: auto; align-items: center; align-self: stretch; }
+  .llm .actions .btn { padding: 6px 12px; font-size: 13px; }
+  .llm .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    align-self: flex-start;
+    font-size: 12px; font-weight: 650; letter-spacing: .6px;
+    color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+    padding: 4px 11px; border-radius: 999px;
+  }
+  .llm .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+
+  /* throughput: two independent columns of the hero */
+  .throughput { display: contents; }
+  .throughput .t {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 14px 22px;
+    border-right: 1px solid var(--border);
+    min-width: 130px;
+  }
+  .throughput .t .label { margin-bottom: 0; }
+  .throughput .t .value { font-size: 24px; line-height: 1.05; }
+  .throughput .delta { font-size: 11px; }
+  .throughput .delta { font-size: 11.5px; font-weight: 600; }
+  .delta.up { color: var(--ok); }
+  .delta.down { color: var(--err); }
+  .llm .chart { padding: 10px 16px 8px; display: flex; flex-direction: column; }
+  .chart .legend {
+    display: flex; gap: 16px; font-size: 12px; color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .legend b { font-weight: 600; color: var(--text); }
+  .legend .sw { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .sw.decode { background: var(--accent); }
+  .sw.prefill { background: var(--warn); }
+  .llm .chart { justify-content: center; }
+  .chart svg { flex: none; width: 100%; height: 64px; }
+
+  footer {
+    display: flex; justify-content: space-between;
+    color: var(--faint); font-size: 12px;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+
+  .theme-toggle { width: 34px; padding: 6px 0; text-align: center; font-size: 15px; }
+
+  @media (max-width: 1100px) {
+    .row { grid-template-columns: repeat(2, 1fr); }
+    .row.row-3 { grid-template-columns: repeat(2, 1fr); }
+    .llm { grid-template-columns: 1fr; }
+    .llm .side, .throughput .t { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ TOP BAR: brand · live pill · model dropdown · actions ============ -->
+  <header>
+    <div class="brand">
+      <span class="logo">▦</span>
+      DGX Spark <small>· LLM Runner</small>
+    </div>
+    <span class="live"><i></i> live · 2s</span>
+    <span class="spacer"></span>
+    <button class="btn theme-toggle" id="themeToggle" title="Toggle light / dark">◐</button>
+  </header>
+
+  <main>
+
+    <!-- ============ LLM HERO: selected model + throughput chart ============ -->
+    <section class="card llm">
+      <div class="side">
+        <details class="select model-title" id="modelSelect">
+          <summary>
+            <span class="dot on" id="selDot"></span>
+            <span id="selName">qwen3-32b</span>
+            <span class="tag" id="selTag">vllm</span>
+            <span class="caret"></span>
+          </summary>
+          <div class="menu" role="listbox">
+            <div class="group">Available models</div>
+            <label class="opt">
+              <input type="radio" name="model" value="qwen3-32b" data-tag="vllm" data-state="running" checked>
+              <span class="dot on"></span>
+              <span>
+                <span class="name">qwen3-32b</span><br>
+                <span class="ep">docker_vllm · localhost:8000</span>
+              </span>
+              <span class="state running">RUNNING</span>
+            </label>
+            <label class="opt">
+              <input type="radio" name="model" value="gpt-oss-20b" data-tag="sglang" data-state="stopped">
+              <span class="dot"></span>
+              <span>
+                <span class="name">gpt-oss-20b</span><br>
+                <span class="ep">docker_sglang · localhost:30000</span>
+              </span>
+              <span class="state stopped">STOPPED</span>
+            </label>
+            <label class="opt">
+              <input type="radio" name="model" value="llama3.3-70b-awq" data-tag="vllm" data-state="stopped">
+              <span class="dot"></span>
+              <span>
+                <span class="name">llama3.3-70b-awq</span><br>
+                <span class="ep">docker_vllm · localhost:8000</span>
+              </span>
+              <span class="state stopped">STOPPED</span>
+            </label>
+            <label class="opt">
+              <input type="radio" name="model" value="RadixArk/Qwen3.8-27b-NVFP4-DSpark-Spec13" data-tag="vllm" data-state="stopped">
+              <span class="dot"></span>
+              <span>
+                <span class="name">RadixArk/Qwen3.8-27b-NVFP4-DSpark-Spec13</span><br>
+                <span class="ep">docker_vllm · localhost:8000</span>
+              </span>
+              <span class="state stopped">STOPPED</span>
+            </label>
+            <div class="hint">Selecting a stopped model will stop the running one first (single-model mode).</div>
+          </div>
+        </details>
+        <div class="actions">
+          <span class="status"><i></i> RUNNING</span>
+          <button class="btn primary" id="btnStart" style="display:none">Start</button>
+          <button class="btn danger-ghost" id="btnStop">Stop</button>
+          <button class="btn">Reload</button>
+        </div>
+      </div>
+      <div class="throughput">
+        <div class="t">
+          <div class="label">Prefill</div>
+          <div class="value">618<small>tok/s</small></div>
+          <div class="delta down">▼ 12 vs 5m avg</div>
+        </div>
+        <div class="t">
+          <div class="label">Decode</div>
+          <div class="value">42.8<small>tok/s</small></div>
+          <div class="delta up">▲ 3.1 vs 5m avg</div>
+        </div>
+      </div>
+      <div class="chart">
+        <div class="legend">
+          <span class="sw decode"></span><b>decode</b> tok/s
+          &nbsp;·&nbsp; <span class="sw prefill"></span><b>prefill</b> tok/s
+          <span class="spacer"></span>
+          <span>last 5 min</span>
+        </div>
+        <svg viewBox="0 0 700 150" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gDec" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/>
+              <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g stroke="var(--border)" stroke-width="1">
+            <line x1="0" y1="37"  x2="700" y2="37"/>
+            <line x1="0" y1="74"  x2="700" y2="74"/>
+            <line x1="0" y1="111" x2="700" y2="111"/>
+          </g>
+          <path fill="url(#gDec)" d="M0,120 40,118 80,122 120,110 160,114 200,96 240,100 280,88 320,94 360,80 400,86 440,72 480,78 520,64 560,70 600,58 640,62 700,52 700,150 0,150 Z"/>
+          <path fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"
+                d="M0,120 40,118 80,122 120,110 160,114 200,96 240,100 280,88 320,94 360,80 400,86 440,72 480,78 520,64 560,70 600,58 640,62 700,52"/>
+          <path fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="1 0" stroke-opacity=".85"
+                d="M0,60 40,66 80,54 120,62 160,50 200,58 240,46 280,56 320,44 360,52 400,40 440,50 480,38 520,48 560,36 600,46 640,34 700,42"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ============ SYSTEM ============ -->
+    <div class="row">
+      <section class="card">
+        <div class="head"><span class="label">CPU Util</span><span class="sub">load 1.84</span></div>
+        <div class="value">34<small>%</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent)" stroke-width="1.8" d="M0,28 20,26 40,30 60,24 80,27 100,22 120,25 140,20 160,24 180,18 200,22"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">CPU Freq</span><span class="sub">max 4.8 GHz</span></div>
+        <div class="value">2.41<small>GHz</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent)" stroke-width="1.8" d="M0,30 20,28 40,29 60,24 80,26 100,22 120,25 140,20 160,23 180,19 200,21"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">CPU Temp</span><span class="sub">peak 95°C</span></div>
+        <div class="value">61<small>°C</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--warn)" stroke-width="1.8" d="M0,26 20,25 40,27 60,24 80,26 100,23 120,25 140,22 160,24 180,21 200,23"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">Memory</span><span class="sub">27.3 / 128 GiB</span></div>
+        <div class="value">21<small>%</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent)" stroke-width="1.8" d="M0,30 20,30 40,29 60,30 80,28 100,29 120,27 140,28 160,26 180,27 200,25"/>
+        </svg>
+      </section>
+    </div>
+
+    <!-- ============ GPU ============ -->
+    <div class="row">
+      <section class="card">
+        <div class="head"><span class="label">GPU Util</span></div>
+        <div class="value">92<small>%</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent-2)" stroke-width="1.8" d="M0,30 20,26 40,28 60,18 80,22 100,14 120,16 140,10 160,12 180,8 200,10"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">GPU Freq</span><span class="sub">max 3003 MHz</span></div>
+        <div class="value">2417<small>MHz</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent)" stroke-width="1.8" d="M0,30 20,28 40,29 60,24 80,26 100,20 120,22 140,18 160,20 180,16 200,18"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">GPU Temp</span><span class="sub">throttle 97°C</span></div>
+        <div class="value">72<small>°C</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--warn)" stroke-width="1.8" d="M0,28 20,27 40,26 60,26 80,24 100,25 120,22 140,23 160,20 180,21 200,19"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">GPU Power</span><span class="sub">limit 100 W</span></div>
+        <div class="value">87<small>W</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent-2)" stroke-width="1.8" d="M0,29 20,28 40,26 60,27 80,22 100,20 120,22 140,16 160,14 180,12 200,11"/>
+        </svg>
+      </section>
+    </div>
+
+    <!-- ============ STORAGE / DISK ============ -->
+    <div class="row row-3">
+      <section class="card">
+        <div class="head"><span class="label">Storage /</span><span class="sub">412 / 998 GiB</span></div>
+        <div class="value">41<small>%</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent)" stroke-width="1.8" d="M0,26 40,26 80,25 120,25 160,24 200,24"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">Disk Read</span></div>
+        <div class="value">12.4<small>MB/s</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent)" stroke-width="1.8" d="M0,32 20,30 40,34 60,28 80,32 100,26 120,30 140,24 160,28 180,22 200,26"/>
+        </svg>
+      </section>
+      <section class="card">
+        <div class="head"><span class="label">Disk Write</span></div>
+        <div class="value">3.1<small>MB/s</small></div>
+        <svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <path fill="none" stroke="var(--accent-2)" stroke-width="1.8" d="M0,34 20,33 40,35 60,32 80,33 100,31 120,32 140,30 160,31 180,29 200,30"/>
+        </svg>
+      </section>
+    </div>
+
+  </main>
+
+  <footer>
+    <span>DGX Spark · single-model mode · sampling every 2s</span>
+    <a href="#">LLM servers &amp; logs ↗</a>
+  </footer>
+</div>
+
+<script>
+  const sel = document.getElementById("modelSelect");
+  const radios = sel.querySelectorAll("input[name=model]");
+  const dot = document.getElementById("selDot");
+  const btnStart = document.getElementById("btnStart");
+  const btnStop = document.getElementById("btnStop");
+  radios.forEach((r) => r.addEventListener("change", () => {
+    const nameEl = document.getElementById("selName");
+    nameEl.textContent = r.value;
+    nameEl.title = r.value; // full name on hover when truncated
+    document.getElementById("selTag").textContent = r.dataset.tag;
+    const running = r.dataset.state === "running";
+    dot.classList.toggle("on", running);
+    btnStart.style.display = running ? "none" : "";
+    btnStop.style.display = running ? "" : "none";
+    sel.removeAttribute("open");  // close like a native select
+  }));
+
+  const root = document.documentElement;
+  const stored = localStorage.getItem("llmrunner-theme");
+  if (stored) root.dataset.theme = stored;
+  else if (matchMedia("(prefers-color-scheme: light)").matches) root.dataset.theme = "light";
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    root.dataset.theme = root.dataset.theme === "light" ? "dark" : "light";
+    localStorage.setItem("llmrunner-theme", root.dataset.theme);
+  });
+</script>
+</body>
+</html>
