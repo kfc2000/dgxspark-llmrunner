@@ -100,7 +100,7 @@ class LlmMetricTracker:
         decode_tps = prefill_tps = None
         with self._lock:
             prev = self._counters.get(name)
-            self._counters[name] = counters
+            self._counters[name] = (now, counters)
             rates = self._rates.get(name) or LlmRates(name=name, endpoint=endpoint)
             rates.endpoint = endpoint
             if prev is not None:
