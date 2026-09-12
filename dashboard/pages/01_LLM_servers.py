@@ -31,20 +31,17 @@ LOG_TAIL_CHOICES = {
     "50": 50,
     "100": 100,
     "300": 300,
-    "1000": 1000,
-    "5000": 5000,
-    "all (docker logs -f)": None,
 }
 LOG_VIEW_HEIGHT = 350
 
 
-def view_logs(container: str, tail: int | None) -> None:
+def view_logs(container: str, tail: int) -> None:
     try:
         logs = control.container_logs(container, tail)
     except control.ControlError as exc:
         st.error(str(exc))
         return
-    st.caption(f"{len(logs.splitlines())} lines" + ("" if tail else " · full output, as `docker logs <name>`"))
+    st.caption(f"{len(logs.splitlines())} lines")
     with st.container(height=LOG_VIEW_HEIGHT, autoscroll=True):
         st.code(logs or "(no output)", language="log")
 
