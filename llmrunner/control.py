@@ -9,11 +9,12 @@ class ControlError(Exception):
     pass
 
 
-def _docker(args: list[str], timeout: float = 15.0) -> str:
+def _docker(args: list[str], timeout: float = 15.0, merge_stderr: bool = False) -> str:
     try:
         out = subprocess.run(
             ["docker", *args],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE,
             text=True,
             timeout=timeout,
         )
@@ -22,7 +23,7 @@ def _docker(args: list[str], timeout: float = 15.0) -> str:
     except subprocess.TimeoutExpired as exc:
         raise ControlError(f"`docker {' '.join(args)}` timed out") from exc
     if out.returncode != 0:
-        raise ControlError(out.stderr.strip() or f"docker {' '.join(args)} failed")
+        raise ControlError((out.stderr or out.stdout).strip() or f"docker {' '.join(args)} failed")
     return out.stdout
 
 
@@ -40,7 +41,7 @@ def container_logs(name: str, tail: int | None = 300) -> str:
     if tail is not None:
         args += ["--tail", str(tail)]
     args.append(name)
-    return _docker(args, timeout=30.0)
+    return _docker(args, timeout=30.0, merge_stderr=True)
 
 
 def running_containers() -> list[str]:
