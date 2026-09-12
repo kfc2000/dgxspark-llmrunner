@@ -23,7 +23,9 @@ sed -e "s|__USER__|$(id -un)|" -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" \
   "$REPO_DIR/llmrunner.service" | sudo tee "$service_file" >/dev/null
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now llmrunner
+sudo systemctl enable llmrunner
+# restart: enable --now is a no-op on a running service and the venv caches imported modules
+sudo systemctl restart llmrunner
 systemctl status llmrunner --no-pager | head -12
 
 echo
