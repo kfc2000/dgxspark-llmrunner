@@ -22,6 +22,7 @@ PALETTES: dict[str, dict[str, str]] = {
         "hover-border": "#3d4c6b",
         "glow-1": "rgba(79,140,255,.09)",
         "glow-2": "rgba(139,92,246,.07)",
+        "scheme": "dark",
     },
     "light": {
         "bg": "#f3f5f9",
@@ -42,12 +43,14 @@ PALETTES: dict[str, dict[str, str]] = {
         "hover-border": "#b7c4d8",
         "glow-1": "rgba(47,111,237,.07)",
         "glow-2": "rgba(122,69,224,.05)",
+        "scheme": "light",
     },
 }
 
 _CSS = """
 <style>
 html { __VARS__ }
+html { color-scheme: __SCHEME__; }
 html, body, .stApp, [data-testid="stAppContainer"], [data-testid="stAppView"],
 [data-testid="stAppContainer"] > div, [data-testid="stBottomBlockContainer"] {
   background-color: var(--bg) !important;
@@ -75,18 +78,23 @@ footer { display: none; }
 [data-testid="stButton"] button {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border-hi);
   border-radius: 10px; font-weight: 600;
+  height: 32px; min-height: 32px !important; max-height: 32px; padding: 4px 14px;
 }
 [data-testid="stButton"] button:hover { border-color: var(--hover-border); background: var(--hover); color: var(--text); }
 [data-testid="stButton"] button[kind="primary"] {
   background: linear-gradient(135deg, var(--accent), #3a6fe0);
   border-color: transparent; color: #fff; box-shadow: 0 4px 16px rgba(79,140,255,.3);
 }
-[data-testid="stSelectbox"] div[data-baseweb="select"],
-[data-testid="stSelectbox"] select {
+[data-testid="stSelectbox"] > div,
+[data-testid="stSelectbox"] div[data-baseweb="select"] {
   background: var(--panel) !important; color: var(--text) !important;
   border: 1px solid var(--border-hi) !important; border-radius: 10px !important;
 }
-[data-testid="stSelectbox"] select { font-weight: 650; font-size: 15.5px; }
+[data-testid="stSelectbox"] select {
+  background: transparent !important; color: var(--text) !important;
+  font-weight: 650; font-size: 15.5px;
+}
+[data-testid="stSelectbox"] option { background: var(--panel) !important; color: var(--text) !important; }
 [data-testid="stTextInput"] input, [data-testid="stTextInput"] div {
   background: var(--panel) !important; color: var(--text) !important;
 }
@@ -95,7 +103,14 @@ footer { display: none; }
 [data-testid="stMetricLabel"] { color: var(--muted) !important; }
 [data-testid="stMetricValue"] { color: var(--text) !important; }
 [data-testid="stWidgetLabel"] { color: var(--muted) !important; }
-code, [data-testid="stCode"] { background: var(--bg) !important; color: var(--text) !important; }
+code, pre, [data-testid="stCode"], [data-testid="stCodeBlockContainer"] {
+  background: var(--bg) !important; color: var(--text) !important;
+}
+[data-testid="stCodeBlockContainer"] { border: 1px solid var(--border) !important; border-radius: 10px; }
+[data-testid="stCodeBlockCopyButton"] { color: var(--faint) !important; }
+[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div[data-testid="stBottomBlockContainer"] {
+  background: var(--bg) !important;
+}
 a { color: var(--muted); }
 a:hover { color: var(--accent); }
 
@@ -151,6 +166,7 @@ a:hover { color: var(--accent); }
 .lr-status {
   display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
   font-size: 12px; font-weight: 650; letter-spacing: .6px; padding: 4px 11px; border-radius: 999px;
+  height: 22px; box-sizing: content-box; margin-top: 3px;
 }
 .lr-status i { width: 8px; height: 8px; border-radius: 50%; }
 .lr-status.running { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); }
@@ -181,5 +197,6 @@ def render() -> None:
     if "theme" not in st.session_state:
         st.session_state.theme = "dark"
     palette = PALETTES[st.session_state.theme]
-    var_decl = " ".join(f"--{k}:{v};" for k, v in palette.items())
-    st.markdown(_CSS.replace("__VARS__", var_decl), unsafe_allow_html=True)
+    var_decl = " ".join(f"--{k}:{v};" for k, v in palette.items() if k != "scheme")
+    css = _CSS.replace("__VARS__", var_decl).replace("__SCHEME__", palette["scheme"])
+    st.markdown(css, unsafe_allow_html=True)

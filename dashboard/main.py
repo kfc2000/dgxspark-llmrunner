@@ -245,10 +245,6 @@ def render_hero() -> None:
     with side:
         st.selectbox("Model", names, index=names.index(selected.name), key="model_sel",
                      label_visibility="collapsed")
-        st.markdown(
-            f'<div class="lr-sub">{_html_escape(selected.type)} · {_html_escape(selected.endpoint)}</div>',
-            unsafe_allow_html=True,
-        )
         reachable = False
         rates = None
         if running:
@@ -260,16 +256,20 @@ def render_hero() -> None:
             pill = ("starting", "STARTING")
         else:
             pill = ("stopped", "STOPPED")
-        c1, c2, c3, c4 = st.columns([2.2, 1.2, 1, 1])
+        c1, c2, c3 = st.columns([2.2, 1.2, 1])
         with c1:
             st.markdown(f'<span class="lr-status {pill[0]}"><i></i> {pill[1]}</span>', unsafe_allow_html=True)
         others = [o for o in llms if status_map[o.name][0] and o.name != selected.name]
-        do_start = c2.button("Swap & Start" if others else "Start", key="btn_start",
-                             disabled=running and reachable, type="primary", width="stretch")
-        do_stop = c3.button("Stop", key="btn_stop", disabled=not running, width="stretch")
-        do_reload = c4.button("Reload", key="btn_reload", width="stretch")
-        if do_reload:
-            st.rerun()
+        do_start = False
+        if running:
+            do_stop = c2.button("Stop", key="btn_stop", width="stretch")
+            do_reload = c3.button("Reload", key="btn_reload", width="stretch")
+            if do_reload:
+                st.rerun()
+        else:
+            do_stop = False
+            do_start = c2.button("Swap & Start" if others else "Start", key="btn_start",
+                                type="primary", width="stretch")
         if do_start or do_stop:
             with st.spinner("Running script…"):
                 try:
