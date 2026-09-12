@@ -27,6 +27,8 @@ if "llm_action_result" not in st.session_state:
     st.session_state.llm_action_result = {}
 
 LOG_TAIL_CHOICES = {
+    "20": 20,
+    "50": 50,
     "100": 100,
     "300": 300,
     "1000": 1000,
@@ -92,7 +94,7 @@ def render_llm(llm: config.LLMConfig) -> None:
             )
 
         if llm.container:
-            tail = st.selectbox("Log lines", list(LOG_TAIL_CHOICES), index=1, key=f"tail_{llm.name}")
+            tail = st.selectbox("Log lines", list(LOG_TAIL_CHOICES), index=0, key=f"tail_{llm.name}")
             auto = st.toggle("Auto refresh (5s)", value=True, key=f"autologs_{llm.name}")
 
             def log_view(tail_label: str = tail, container: str = llm.container) -> None:
