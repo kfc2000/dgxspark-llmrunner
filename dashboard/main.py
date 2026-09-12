@@ -28,19 +28,24 @@ def _fmt(value: float | None, unit: str = "", digits: int = 1) -> str:
 WINDOW_S = 300
 
 
+def _window_x():
+    now = time.time()
+    return alt.X(
+        "t:T",
+        title=None,
+        axis=alt.Axis(format="%H:%M:%S"),
+        scale=alt.Scale(domain=[datetime.fromtimestamp(now - WINDOW_S), datetime.fromtimestamp(now)]),
+    )
+
+
 def _sparkline(values: list[tuple[float, float]]) -> None:
     now = time.time()
-    recent = [(ts, v) for ts, v in values if now - ts <= WINDOW_S]
-    if len(recent) <= 2:
-        return
+    recent = [(datetime.fromtimestamp(ts), v) for ts, v in values if now - ts <= WINDOW_S]
     df = pd.DataFrame(recent, columns=["t", "v"])
     chart = (
         alt.Chart(df)
         .mark_line()
-        .encode(
-            x=alt.X("t:T", title=None),
-            y=alt.Y("v:Q", title=None, scale=alt.Scale(domain=[0, 100])),
-        )
+        .encode(x=_window_x(), y=alt.Y("v:Q", title=None, scale=alt.Scale(domain=[0, 100])))
     )
     st.altair_chart(chart, height=140, use_container_width=True)
 
@@ -125,21 +130,24 @@ def render_llms() -> None:
                 st.metric("Prefill", _fmt(rates.prefill_tps, " tok/s"))
                 now = time.time()
                 recent = [p for p in rates.history if now - p["ts"] <= WINDOW_S]
-                if len(recent) > 2:
-                    st.line_chart(
-                        [
-                            {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["decode_tps"], "kind": "decode"}
-                            for p in recent
-                        ]
-                        + [
-                            {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["prefill_tps"], "kind": "prefill"}
-                            for p in recent
-                        ],
-                        x="t",
-                        y="tok/s",
-                        color="kind",
-                        height=160,
+                rows = (
+                    [
+                        {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["decode_tps"], "kind": "decode"}
+                        for p in recent
+                    ]
+                    + [
+                        {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["prefill_tps"], "kind": "prefill"}
+                        for p in recent
+                    ]
+                )
+                if rows:
+                    df = pd.DataFrame(rows)
+                    chart = (
+                        alt.Chart(df)
+                        .mark_line()
+                        .encode(x=_window_x(), y=alt.Y("tok/s:Q", title=None), color=alt.Color("kind:N"))
                     )
+                    st.altair_chart(chart, height=160, use_container_width=True)
 
 
 st.title("DGX Spark · LLM Runner")
