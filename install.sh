@@ -15,7 +15,7 @@ if [[ -f "$INSTALL_DIR/llms.json" ]]; then
 fi
 
 rsync -a --delete "${rsync_excludes[@]}" \
-  "$REPO_DIR/dashboard" "$REPO_DIR/llmrunner" "$REPO_DIR/llms.json" \
+  "$REPO_DIR/web" "$REPO_DIR/llmrunner" "$REPO_DIR/llms.json" \
   "$INSTALL_DIR/"
 
 service_file=/etc/systemd/system/llmrunner.service

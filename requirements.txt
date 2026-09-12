@@ -1,4 +1,5 @@
-streamlit>=1.63
+fastapi>=0.110
+uvicorn>=0.30
 psutil>=6.0
 nvidia-ml-py>=12.565
 requests>=2.31

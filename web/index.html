@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DGX Spark · LLM Runner</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <span class="logo">▦</span>
+      DGX Spark <small>· LLM Runner</small>
+    </div>
+    <span class="live" id="livePill"><i></i> <span id="liveText">connecting…</span></span>
+    <span class="nav">
+      <button id="navDash" class="active">Dashboard</button>
+      <button id="navServers">Servers</button>
+    </span>
+    <span class="spacer"></span>
+    <button class="btn theme-toggle" id="themeToggle" title="Toggle light / dark">◐</button>
+  </header>
+
+  <!-- ==================== DASHBOARD VIEW ==================== -->
+  <main id="viewDash">
+
+    <section class="card llm">
+      <div class="side">
+        <details class="select model-title" id="modelSelect">
+          <summary>
+            <span class="dot" id="selDot"></span>
+            <span id="selName">—</span>
+            <span class="tag" id="selTag"></span>
+            <span class="caret"></span>
+          </summary>
+          <div class="menu" role="listbox" id="modelMenu">
+            <div class="group">Available models</div>
+          </div>
+        </details>
+        <div class="actions">
+          <span class="status stopped" id="statusPill"><i></i> <span id="statusText">—</span></span>
+          <button class="btn primary" id="btnStart" hidden>Start</button>
+          <button class="btn danger-ghost" id="btnStop" hidden>Stop</button>
+          <button class="btn" id="btnReload" hidden>Reload</button>
+        </div>
+      </div>
+      <div class="throughput">
+        <div class="t">
+          <div class="label">Prefill</div>
+          <div class="value" id="prefillVal">n/a<small>tok/s</small></div>
+          <div class="delta" id="prefillDelta"></div>
+        </div>
+        <div class="t">
+          <div class="label">Decode</div>
+          <div class="value" id="decodeVal">n/a<small>tok/s</small></div>
+          <div class="delta" id="decodeDelta"></div>
+        </div>
+      </div>
+      <div class="chart">
+        <div class="legend">
+          <span><span class="sw decode"></span><b>decode</b> tok/s</span>
+          <span><span class="sw prefill"></span><b>prefill</b> tok/s</span>
+          <span class="spacer"></span>
+          <span>last 5 min</span>
+        </div>
+        <svg id="heroSvg" viewBox="0 0 700 150" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gDec" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/>
+              <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g stroke="var(--border)" stroke-width="1">
+            <line x1="0" y1="37"  x2="700" y2="37"/>
+            <line x1="0" y1="74"  x2="700" y2="74"/>
+            <line x1="0" y1="111" x2="700" y2="111"/>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <div class="row" id="rowSys"></div>
+    <div class="row" id="rowGpu"></div>
+    <div class="row row-3" id="rowStorage"></div>
+
+  </main>
+
+  <!-- ==================== SERVERS VIEW ==================== -->
+  <main id="viewServers" hidden>
+    <section class="card servers">
+      <div class="bar">
+        <details class="select" id="serverSelect">
+          <summary>
+            <span class="dot" id="srvDot"></span>
+            <span id="srvName">—</span>
+            <span class="tag" id="srvTag"></span>
+            <span class="caret"></span>
+          </summary>
+          <div class="menu" id="serverMenu"><div class="group">Available models</div></div>
+        </details>
+        <button class="btn primary" id="srvStart">Start</button>
+        <button class="btn danger-ghost" id="srvStop">Stop</button>
+        <span class="spacer"></span>
+        <label class="ctl">Lines
+          <select id="logTail">
+            <option>50</option>
+            <option>100</option>
+            <option selected>300</option>
+            <option>1000</option>
+          </select>
+        </label>
+        <label class="ctl"><input type="checkbox" id="logAuto" checked> Auto refresh 5s</label>
+        <button class="btn" id="logRefresh">Refresh</button>
+      </div>
+      <div class="detail" id="srvDetail"></div>
+    </section>
+    <section class="card logsbox">
+      <div class="head"><span class="label">Container logs</span><span class="sub" id="logsMeta"></span></div>
+      <pre class="logs" id="logs">select a model…</pre>
+    </section>
+  </main>
+
+  <footer>
+    <span id="footInfo">DGX Spark · single-model mode · sampling every 2s</span>
+    <a href="#" id="footLink">LLM servers &amp; logs ↗</a>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

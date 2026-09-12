@@ -1,6 +1,6 @@
 # DGX Spark LLM Runner
 
-A Python + Streamlit dashboard for monitoring and controlling local LLM servers on an
+A Python (FastAPI) + vanilla HTML/JS/CSS dashboard for monitoring and controlling local LLM servers on an
 NVIDIA DGX Spark (GB10, e.g. Asus GX10). It runs on the Spark itself and gives you one web
 page for:
 
@@ -17,8 +17,9 @@ page for:
 
 | Path | Purpose |
 |---|---|
-| `dashboard/main.py` | Streamlit entry point: hardware telemetry + throughput of the loaded model (auto-refreshing) |
-| `dashboard/pages/01_LLM_servers.py` | One model at a time: pick a model, swap/stop it, log viewer |
+| `llmrunner/api.py` | FastAPI app: JSON API + serves the single-page frontend (`uvicorn llmrunner.api:app`) |
+| `web/index.html` / `web/app.js` / `web/style.css` | The whole frontend: dashboard + servers/logs views, polling every 2s |
+| `prototype/index.html` | Static design prototype the UI is modeled on |
 | `llmrunner/config.py` | Loads/validates `llms.json` |
 | `llmrunner/hw_metrics.py` | NVML (GPU) + psutil + `/sys/class/hwmon` (CPU temp/power) probes |
 | `llmrunner/sampler.py` | Background thread collecting hardware samples (history ring buffer) |
@@ -117,7 +118,7 @@ survive updates. To use a config file elsewhere, edit
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-LLMRUNNER_CONFIG=/path/to/llms.json .venv/bin/streamlit run dashboard/main.py
+LLMRUNNER_CONFIG=/path/to/llms.json .venv/bin/uvicorn llmrunner.api:app --port 8501
 ```
 
 ### Development (any machine)
@@ -125,7 +126,8 @@ LLMRUNNER_CONFIG=/path/to/llms.json .venv/bin/streamlit run dashboard/main.py
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest ruff
 .venv/bin/python -m pytest tests -q
-.venv/bin/python -m ruff check llmrunner dashboard tests
+.venv/bin/python -m ruff check llmrunner tests
+node --check web/app.js
 ```
 
 Hardware tiles degrade to `n/a` off-Spark; the Prometheus parser and config loader are unit-tested.
@@ -134,3 +136,6 @@ Hardware tiles degrade to `n/a` off-Spark; the Prometheus parser and config load
 
 The dashboard has no authentication and Start/Stop buttons execute bash on the box. Keep it
 loopback-only or behind Tailscale/a reverse proxy — do not expose port 8501 to an untrusted network.
+
+Optional: set `LLMRUNNER_TOKEN` in the environment (e.g. in `Environment=` of the unit) to
+require `Authorization: Bearer <token>` on the start/stop endpoints.
