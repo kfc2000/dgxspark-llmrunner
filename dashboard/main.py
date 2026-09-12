@@ -78,7 +78,7 @@ def render_hardware() -> None:
 
     sys_cards = [
         (
-            "CPU",
+            "CPU Util",
             _fmt(s.get("cpu_pct"), " %"),
             f"load {s.get('load_1m', 0):.2f}",
             _series(history, "cpu_pct"),
@@ -112,32 +112,32 @@ def render_hardware() -> None:
     else:
         gpu_cards = [
             (
-                "GPU util",
+                "GPU Util",
                 _fmt(gpu.util_pct, " %"),
                 "",
                 _series(history, None, "util_pct"),
                 (0, 100),
             ),
             (
-                "GPU temp",
+                "GPU Freq",
+                _fmt(getattr(gpu, "clock_mhz", None), " MHz", 0),
+                "",
+                _series(history, None, "clock_mhz"),
+                (0, 3003),
+            ),
+            (
+                "GPU Temp",
                 _fmt(gpu.temp_c, " °C"),
                 "",
                 _series(history, None, "temp_c"),
                 (0, 100),
             ),
             (
-                "GPU power",
+                "GPU Power",
                 _fmt(gpu.power_w, " W"),
                 f"limit {_fmt(gpu.power_limit_w, ' W')}",
                 _series(history, None, "power_w"),
                 (0, 100),
-            ),
-            (
-                "GPU freq",
-                _fmt(getattr(gpu, "clock_mhz", None), " MHz", 0),
-                "",
-                _series(history, None, "clock_mhz"),
-                (0, 3003),
             ),
         ]
 
