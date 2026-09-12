@@ -26,7 +26,7 @@ def _clean(value):
     return value
 
 
-def _require_token(authorization: str | None) -> None:
+def _require_token(authorization: str | None = Header(None)) -> None:
     token = os.environ.get("LLMRUNNER_TOKEN")
     if not token:
         return
@@ -119,8 +119,7 @@ def api_llms() -> dict:
 
 
 @app.post("/api/llms/{name}/start")
-def api_start(name: str, authorization: str | None = Header(None),
-              _: None = Depends(_require_token)) -> dict:
+def api_start(name: str, _: None = Depends(_require_token)) -> dict:
     llm = _find(name)
     others = [o for o in _load_llms() if o.name != name and control.is_llm_running(o)[0]]
     try:
@@ -131,8 +130,7 @@ def api_start(name: str, authorization: str | None = Header(None),
 
 
 @app.post("/api/llms/{name}/stop")
-def api_stop(name: str, authorization: str | None = Header(None),
-             _: None = Depends(_require_token)) -> dict:
+def api_stop(name: str, _: None = Depends(_require_token)) -> dict:
     llm = _find(name)
     try:
         ok, output = control.stop_llm(llm)
