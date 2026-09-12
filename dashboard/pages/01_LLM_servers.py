@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import _bootstrap  # noqa: F401  (adds repo root to sys.path)
 import streamlit as st
+import theme
 
 from llmrunner import config, control, llm_metrics
 from llmrunner.config import ConfigError
 
 st.set_page_config(page_title="LLM servers", page_icon="⚙", layout="wide")
+theme.render()
 
 tracker = llm_metrics.get_tracker()
 
