@@ -53,7 +53,7 @@ def _sparkline(
         .mark_line()
         .encode(x=_window_x(), y=alt.Y("v:Q", title=None, scale=alt.Scale(domain=list(y_domain)) if y_domain else None))
     )
-    st.altair_chart(chart, height=110, use_container_width=True)
+    st.altair_chart(chart, height=110, width="stretch")
 
 
 def _series(history, key: str, gpu_attr: str | None = None) -> list[tuple[float, float]]:
@@ -238,7 +238,7 @@ def render_llms() -> None:
                         .mark_line()
                         .encode(x=_window_x(), y=alt.Y("tok/s:Q", title=None), color=alt.Color("kind:N"))
                     )
-                    st.altair_chart(chart, height=160, use_container_width=True)
+                    st.altair_chart(chart, height=160, width="stretch")
 
 
 st.title("DGX Spark · LLM Runner")

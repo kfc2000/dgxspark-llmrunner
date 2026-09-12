@@ -78,10 +78,10 @@ def render_llm(llm: config.LLMConfig, others_running: list[config.LLMConfig]) ->
             key=f"start_{llm.name}",
             disabled=running,
             type="primary" if swap else "secondary",
-            use_container_width=True,
+            width="stretch",
         )
-        do_stop = b2.button("Stop", key=f"stop_{llm.name}", disabled=not running, use_container_width=True)
-        do_refresh = b3.button("Refresh", key=f"refresh_{llm.name}", use_container_width=True)
+        do_stop = b2.button("Stop", key=f"stop_{llm.name}", disabled=not running, width="stretch")
+        do_refresh = b3.button("Refresh", key=f"refresh_{llm.name}", width="stretch")
         if swap:
             st.caption(f"Will stop {', '.join(f'`{o.name}`' for o in others_running)} before starting.")
         if do_refresh:
