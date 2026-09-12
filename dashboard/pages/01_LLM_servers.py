@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import html
-
 import _bootstrap  # noqa: F401  (adds repo root to sys.path)
 import streamlit as st
 
@@ -28,36 +26,25 @@ if not llms:
 if "llm_action_result" not in st.session_state:
     st.session_state.llm_action_result = {}
 
-LOG_TAIL_CHOICES = {lbl: n for lbl, n in zip(("100", "300", "1000", "5000"), (100, 300, 1000, 5000), strict=True)}
+LOG_TAIL_CHOICES = {
+    "100": 100,
+    "300": 300,
+    "1000": 1000,
+    "5000": 5000,
+    "all (docker logs -f)": None,
+}
 LOG_VIEW_HEIGHT = 350
 
 
-def _render_logs_html(logs: str) -> str:
-    escaped = html.escape(logs) or "(no output)"
-    return (
-        "<style>"
-        "html,body{margin:0;background:#0e1117;color:#d5d8dd;"
-        "font:12px/1.5 'SFMono-Regular',Menlo,Consolas,monospace}"
-        "pre{margin:0;padding:8px;white-space:pre;overflow-x:auto}"
-        "</style>"
-        f"<pre>{escaped}</pre>"
-        "<script>window.addEventListener('load',function(){"
-        "var e=document.scrollingElement||document.documentElement;"
-        "e.scrollTop=e.scrollHeight});</script>"
-    )
-
-
-def view_logs(container: str, tail: int) -> None:
+def view_logs(container: str, tail: int | None) -> None:
     try:
         logs = control.container_logs(container, tail)
     except control.ControlError as exc:
         st.error(str(exc))
         return
-    st.caption(f"{len(logs.splitlines())} lines")
-    try:
-        st.html(_render_logs_html(logs), height=LOG_VIEW_HEIGHT)
-    except TypeError:
-        st.code(logs, language="log")
+    st.caption(f"{len(logs.splitlines())} lines" + ("" if tail else " · full output, as `docker logs <name>`"))
+    with st.container(height=LOG_VIEW_HEIGHT, autoscroll=True):
+        st.code(logs or "(no output)", language="log")
 
 
 def render_llm(llm: config.LLMConfig) -> None:

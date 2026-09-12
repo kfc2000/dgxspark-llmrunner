@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import math
+import time
 from datetime import datetime
 
 import _bootstrap  # noqa: F401  (adds repo root to sys.path)
+import altair as alt
+import pandas as pd
 import streamlit as st
 
 from llmrunner import config, llm_metrics
@@ -22,14 +25,24 @@ def _fmt(value: float | None, unit: str = "", digits: int = 1) -> str:
     return f"{value:.{digits}f}{unit}"
 
 
-def _sparkline(values: list[float]) -> None:
-    if len(values) > 2:
-        st.line_chart(
-            [{"t": datetime.fromtimestamp(ts), "v": v} for ts, v in values],
-            x="t",
-            y="v",
-            height=140,
+WINDOW_S = 300
+
+
+def _sparkline(values: list[tuple[float, float]]) -> None:
+    now = time.time()
+    recent = [(ts, v) for ts, v in values if now - ts <= WINDOW_S]
+    if len(recent) <= 2:
+        return
+    df = pd.DataFrame(recent, columns=["t", "v"])
+    chart = (
+        alt.Chart(df)
+        .mark_line()
+        .encode(
+            x=alt.X("t:T", title=None),
+            y=alt.Y("v:Q", title=None, scale=alt.Scale(domain=[0, 100])),
         )
+    )
+    st.altair_chart(chart, height=140, use_container_width=True)
 
 
 @st.fragment(run_every="2s")
@@ -110,15 +123,17 @@ def render_llms() -> None:
                     continue
                 st.metric("Decode", _fmt(rates.decode_tps, " tok/s"))
                 st.metric("Prefill", _fmt(rates.prefill_tps, " tok/s"))
-                if rates.history and len(rates.history) > 2:
+                now = time.time()
+                recent = [p for p in rates.history if now - p["ts"] <= WINDOW_S]
+                if len(recent) > 2:
                     st.line_chart(
                         [
                             {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["decode_tps"], "kind": "decode"}
-                            for p in rates.history
+                            for p in recent
                         ]
                         + [
                             {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["prefill_tps"], "kind": "prefill"}
-                            for p in rates.history
+                            for p in recent
                         ],
                         x="t",
                         y="tok/s",

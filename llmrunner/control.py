@@ -35,13 +35,12 @@ def container_status(name: str) -> str | None:
     return line[0] if line else None
 
 
-def _normalize_log_stream(raw: str) -> str:
-    return raw.replace("\r\n", "\n").replace("\r", "\n")
-
-
-def container_logs(name: str, tail: int = 300) -> str:
-    raw = _docker(["logs", "--tail", str(tail), name], timeout=30.0)
-    return _normalize_log_stream(raw)
+def container_logs(name: str, tail: int | None = 300) -> str:
+    args = ["logs"]
+    if tail is not None:
+        args += ["--tail", str(tail)]
+    args.append(name)
+    return _docker(args, timeout=30.0)
 
 
 def running_containers() -> list[str]:
@@ -77,7 +76,10 @@ def is_llm_running(llm: LLMConfig) -> tuple[bool, str]:
     return alive, "endpoint responding" if alive else "endpoint unreachable"
 
 
-def run_script(script: str, workdir: str, timeout: float = 120.0) -> tuple[int, str]:
+START_TIMEOUT_S = 30 * 60
+
+
+def run_script(script: str, workdir: str, timeout: float | None = 120.0) -> tuple[int, str]:
     import os
 
     if not os.path.isdir(workdir):
@@ -99,7 +101,7 @@ def run_script(script: str, workdir: str, timeout: float = 120.0) -> tuple[int, 
 
 
 def start_llm(llm: LLMConfig) -> tuple[bool, str]:
-    rc, output = run_script(llm.start_script, llm.workdir)
+    rc, output = run_script(llm.start_script, llm.workdir, timeout=START_TIMEOUT_S)
     return rc == 0, output or (f"exit {rc}" if rc else "started")
 
 
