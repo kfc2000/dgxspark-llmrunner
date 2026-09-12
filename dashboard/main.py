@@ -134,7 +134,7 @@ def render_hardware() -> None:
             ),
             (
                 "GPU freq",
-                _fmt(gpu.clock_mhz, " MHz", 0),
+                _fmt(getattr(gpu, "clock_mhz", None), " MHz", 0),
                 "",
                 _series(history, None, "clock_mhz"),
                 (0, 3003),
