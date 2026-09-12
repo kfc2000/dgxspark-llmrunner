@@ -85,16 +85,18 @@ footer { display: none; }
   background: linear-gradient(135deg, var(--accent), #3a6fe0);
   border-color: transparent; color: #fff; box-shadow: 0 4px 16px rgba(79,140,255,.3);
 }
-[data-testid="stSelectbox"] > div,
-[data-testid="stSelectbox"] div[data-baseweb="select"] {
-  background: var(--panel) !important; color: var(--text) !important;
-  border: 1px solid var(--border-hi) !important; border-radius: 10px !important;
+[data-testid="stSelectbox"] {
+  background: var(--panel) !important;
+  border: 1px solid var(--border-hi) !important; border-radius: 10px !important; padding: 2px 4px;
 }
+[data-testid="stSelectbox"] div[data-baseweb="select"],
+[data-testid="stSelectbox"] * { background-color: transparent !important; }
+[data-testid="stSelectbox"] div[data-baseweb="select"] { border: none !important; }
 [data-testid="stSelectbox"] select {
-  background: transparent !important; color: var(--text) !important;
-  font-weight: 650; font-size: 15.5px;
+  color: var(--text) !important; font-weight: 650; font-size: 15.5px;
 }
-[data-testid="stSelectbox"] option { background: var(--panel) !important; color: var(--text) !important; }
+[data-testid="stSelectbox"] option { background: var(--menu-bg) !important; color: var(--text) !important; }
+.stMarkdown, .stMarkdown p { color: var(--text) !important; }
 [data-testid="stTextInput"] input, [data-testid="stTextInput"] div {
   background: var(--panel) !important; color: var(--text) !important;
 }
