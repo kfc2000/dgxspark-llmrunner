@@ -50,22 +50,30 @@ def _last(values: list[tuple[float, float]], count: int = 60) -> list[float]:
 
 
 def _spark_svg(values: list[tuple[float, float]], color: str, domain: tuple[float, float] | None = None) -> str:
-    pts = _last(values)
+    now = time.time()
+    pts = [
+        (ts, v) for ts, v in values
+        if now - ts <= WINDOW_S and v is not None and not (isinstance(v, float) and math.isnan(v))
+    ]
+    if len(pts) > 60:
+        stride = math.ceil(len(pts) / 60)
+        pts = pts[::stride]
     svg_open = f'<svg class="lr-spark" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none">'
     if len(pts) < 2:
         return svg_open + "</svg>"
+    vals = [v for _, v in pts]
     if domain is not None:
         lo, hi = domain
     else:
-        lo = min(0.0, min(pts))
-        hi = max(pts) * 1.2 or 1.0
+        lo = min(0.0, min(vals))
+        hi = max(vals) * 1.2 or 1.0
     if hi <= lo:
         hi = lo + 1.0
-    step = SPARK_W / (len(pts) - 1)
+    t0 = now - WINDOW_S
     d = " ".join(
-        f"{'M' if i == 0 else 'L'}{i * step:.1f},"
+        f"{'M' if i == 0 else 'L'}{min(max((ts - t0) / WINDOW_S * SPARK_W, 0), SPARK_W):.1f},"
         f"{SPARK_H - 2 - (min(max(v, lo), hi) - lo) / (hi - lo) * (SPARK_H - 4):.1f}"
-        for i, v in enumerate(pts)
+        for i, (ts, v) in enumerate(pts)
     )
     return svg_open + f'<path d="{d}" fill="none" stroke="{color}" stroke-width="1.8" stroke-linejoin="round"/></svg>'
 
