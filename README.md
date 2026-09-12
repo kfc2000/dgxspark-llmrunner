@@ -17,7 +17,7 @@ page for:
 
 | Path | Purpose |
 |---|---|
-| `dashboard/main.py` | Streamlit entry point: hardware + throughput dashboard (auto-refreshing) |
+| `dashboard/main.py` | Streamlit entry point: hardware telemetry + throughput of the loaded model (auto-refreshing) |
 | `dashboard/pages/01_LLM_servers.py` | One model at a time: pick a model, swap/stop it, log viewer |
 | `llmrunner/config.py` | Loads/validates `llms.json` |
 | `llmrunner/hw_metrics.py` | NVML (GPU) + psutil + `/sys/class/hwmon` (CPU temp/power) probes |

@@ -9,7 +9,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from llmrunner import config, llm_metrics
+from llmrunner import config, control, llm_metrics
 from llmrunner.sampler import get_sampler
 
 st.set_page_config(page_title="DGX Spark LLM Runner", page_icon="▦", layout="wide")
@@ -207,43 +207,38 @@ def render_llms() -> None:
     if not llms:
         st.info(f"No LLMs configured. Create `{config.DEFAULT_CONFIG_PATH}` (see repo `llms.json`).")
         return
-    for group_start in range(0, len(llms), 4):
-        group = llms[group_start : group_start + 4]
-        cols = st.columns(len(group))
-        for col, llm in zip(cols, group, strict=True):
-            with col:
-                rates = tracker.scrape(llm.name, llm.endpoint)
-                st.caption(f"**{llm.name}** · {llm.type}")
-                if not rates.reachable:
-                    st.metric("status", "offline", "no /metrics")
-                    continue
-                st.metric("Decode", _fmt(rates.decode_tps, " tok/s"))
-                st.metric("Prefill", _fmt(rates.prefill_tps, " tok/s"))
-                now = time.time()
-                recent = [p for p in rates.history if now - p["ts"] <= WINDOW_S]
-                rows = (
-                    [
-                        {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["decode_tps"], "kind": "decode"}
-                        for p in recent
-                    ]
-                    + [
-                        {"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["prefill_tps"], "kind": "prefill"}
-                        for p in recent
-                    ]
-                )
-                if rows:
-                    df = pd.DataFrame(rows)
-                    chart = (
-                        alt.Chart(df)
-                        .mark_line()
-                        .encode(x=_window_x(), y=alt.Y("tok/s:Q", title=None), color=alt.Color("kind:N"))
-                    )
-                    st.altair_chart(chart, height=160, width="stretch")
+    loaded = control.running_llms(llms)
+    if not loaded:
+        st.info("No model loaded. The Spark runs one model at a time — load one on the **LLM servers** page.")
+        return
+    for llm in loaded:
+        rates = tracker.scrape(llm.name, llm.endpoint)
+        st.caption(f"**{llm.name}** · {llm.type} — loaded")
+        if not rates.reachable:
+            st.metric("Status", "loading", "no /metrics yet")
+            continue
+        c1, c2 = st.columns(2)
+        c1.metric("Decode", _fmt(rates.decode_tps, " tok/s"))
+        c2.metric("Prefill", _fmt(rates.prefill_tps, " tok/s"))
+        now = time.time()
+        recent = [p for p in rates.history if now - p["ts"] <= WINDOW_S]
+        rows = (
+            [{"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["decode_tps"], "kind": "decode"} for p in recent]
+            + [{"t": datetime.fromtimestamp(p["ts"]), "tok/s": p["prefill_tps"], "kind": "prefill"} for p in recent]
+        )
+        if rows:
+            df = pd.DataFrame(rows)
+            chart = (
+                alt.Chart(df)
+                .mark_line()
+                .encode(x=_window_x(), y=alt.Y("tok/s:Q", title=None), color=alt.Color("kind:N"))
+            )
+            st.altair_chart(chart, height=240, width="stretch")
 
 
 st.title("DGX Spark · LLM Runner")
 
 render_hardware()
 st.divider()
-st.subheader("LLM throughput")
+st.subheader("LLM throughput", help="Single-model mode: only the loaded model is shown.")
 render_llms()
