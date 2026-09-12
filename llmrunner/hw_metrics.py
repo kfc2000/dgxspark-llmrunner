@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,7 @@ class GpuStat:
     power_limit_w: float | None = None
     mem_used_mb: float | None = None
     mem_total_mb: float | None = None
+    clock_mhz: float | None = None
 
 
 class _NvmlProbe:
@@ -76,6 +78,14 @@ class _NvmlProbe:
             mem = self.nv.nvmlDeviceGetMemoryInfo(self.handle)
             stat.mem_used_mb = mem.used / (1024 * 1024)
             stat.mem_total_mb = mem.total / (1024 * 1024)
+        except Exception:
+            pass
+        try:
+            stat.clock_mhz = float(
+                self.nv.nvmlDeviceGetClockInfo(
+                    self.handle, getattr(pynvml, "NVML_CLOCK_GRAPHICS", 0)
+                )
+            )
         except Exception:
             pass
         return stat
@@ -169,10 +179,31 @@ def read_cpu_power_w() -> float | None:
     return _pick(powers, ("cpu", "package", "soc", "vdd"))
 
 
+def _disk_io_rates() -> tuple[float, float]:
+    global _io_prev
+    now = time.time()
+    try:
+        io = psutil.disk_io_counters()
+    except Exception:
+        io = None
+    prev = _io_prev
+    _io_prev = (now, getattr(io, "read_bytes", 0), getattr(io, "write_bytes", 0))
+    if io is None or prev is None or now <= prev[0]:
+        return (float("nan"), float("nan"))
+    dt = now - prev[0]
+    read_mb = (io.read_bytes - prev[1]) / 2**20 / dt
+    write_mb = (io.write_bytes - prev[2]) / 2**20 / dt
+    return (max(read_mb, 0.0), max(write_mb, 0.0))
+
+
+_io_prev: tuple[float, int, int] | None = None
+
+
 def read_system() -> dict[str, float]:
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     freq = psutil.cpu_freq()
+    read_mbps, write_mbps = _disk_io_rates()
     return {
         "cpu_pct": psutil.cpu_percent(),
         "load_1m": psutil.getloadavg()[0],
@@ -182,6 +213,8 @@ def read_system() -> dict[str, float]:
         "disk_pct": disk.percent,
         "disk_used_gb": disk.used / 2**30,
         "disk_total_gb": disk.total / 2**30,
+        "disk_read_mbps": read_mbps,
+        "disk_write_mbps": write_mbps,
         "cpu_freq_mhz": freq.current or 0.0,
         "cpu_temp_c": read_cpu_temp_c() or float("nan"),
         "cpu_power_w": read_cpu_power_w() or float("nan"),

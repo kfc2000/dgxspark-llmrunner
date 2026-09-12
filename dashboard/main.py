@@ -38,16 +38,33 @@ def _window_x():
     )
 
 
-def _sparkline(values: list[tuple[float, float]]) -> None:
+def _sparkline(
+    values: list[tuple[float, float]], y_domain: tuple[float, float] | None = (0, 100)
+) -> None:
     now = time.time()
-    recent = [(datetime.fromtimestamp(ts), v) for ts, v in values if now - ts <= WINDOW_S]
+    recent = [
+        (datetime.fromtimestamp(ts), v)
+        for ts, v in values
+        if now - ts <= WINDOW_S and v is not None and not math.isnan(v)
+    ]
     df = pd.DataFrame(recent, columns=["t", "v"])
     chart = (
         alt.Chart(df)
         .mark_line()
-        .encode(x=_window_x(), y=alt.Y("v:Q", title=None, scale=alt.Scale(domain=[0, 100])))
+        .encode(x=_window_x(), y=alt.Y("v:Q", title=None, scale=alt.Scale(domain=list(y_domain)) if y_domain else None))
     )
-    st.altair_chart(chart, height=140, use_container_width=True)
+    st.altair_chart(chart, height=110, use_container_width=True)
+
+
+def _series(history, key: str, gpu_attr: str | None = None) -> list[tuple[float, float]]:
+    out = []
+    for h in history:
+        if gpu_attr is not None:
+            v = getattr(h.gpu, gpu_attr, None) if h.gpu else None
+        else:
+            v = h.sys.get(key)
+        out.append((h.ts, v))
+    return out
 
 
 @st.fragment(run_every="2s")
@@ -59,35 +76,99 @@ def render_hardware() -> None:
     s = latest.sys
     gpu = latest.gpu
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("CPU", _fmt(s.get("cpu_pct"), " %"), _fmt(s.get("cpu_temp_c"), " °C"), delta_color="inverse")
-        st.caption(f"load {s.get('load_1m', 0):.2f} · {_fmt(s.get('cpu_freq_mhz') or None, ' MHz', 0)}")
-    with c2:
-        st.metric(
-            "CPU power",
-            _fmt(s.get("cpu_power_w"), " W"),
+    sys_cards = [
+        (
+            "CPU",
+            _fmt(s.get("cpu_pct"), " %"),
+            f"load {s.get('load_1m', 0):.2f}",
+            _series(history, "cpu_pct"),
+            (0, 100),
+        ),
+        (
+            "CPU freq",
+            _fmt(s.get("cpu_freq_mhz") or None, " MHz", 0),
+            "",
+            _series(history, "cpu_freq_mhz"),
+            (0, 4800),
+        ),
+        (
+            "CPU temp",
             _fmt(s.get("cpu_temp_c"), " °C"),
-            delta_color="inverse",
-        )
-    with c3:
-        mem_delta = f"{s.get('mem_used_gb', 0):.1f} / {s.get('mem_total_gb', 0):.0f} GiB"
-        st.metric("Memory", _fmt(s.get("mem_pct"), " %"), mem_delta)
-    with c4:
-        disk_delta = f"{s.get('disk_used_gb', 0):.0f} / {s.get('disk_total_gb', 0):.0f} GiB"
-        st.metric("Storage /", _fmt(s.get("disk_pct"), " %"), disk_delta)
+            "",
+            _series(history, "cpu_temp_c"),
+            (0, 100),
+        ),
+        (
+            "Memory",
+            _fmt(s.get("mem_pct"), " %"),
+            f"{s.get('mem_used_gb', 0):.1f} / {s.get('mem_total_gb', 0):.0f} GiB",
+            _series(history, "mem_pct"),
+            (0, 100),
+        ),
+    ]
 
+    if gpu is None:
+        gpu_cards = []
+    else:
+        gpu_cards = [
+            (
+                "GPU util",
+                _fmt(gpu.util_pct, " %"),
+                "",
+                _series(history, None, "util_pct"),
+                (0, 100),
+            ),
+            (
+                "GPU temp",
+                _fmt(gpu.temp_c, " °C"),
+                "",
+                _series(history, None, "temp_c"),
+                (0, 100),
+            ),
+            (
+                "GPU power",
+                _fmt(gpu.power_w, " W"),
+                f"limit {_fmt(gpu.power_limit_w, ' W')}",
+                _series(history, None, "power_w"),
+                (0, 100),
+            ),
+            (
+                "GPU freq",
+                _fmt(gpu.clock_mhz, " MHz", 0),
+                "",
+                _series(history, None, "clock_mhz"),
+                (0, 3003),
+            ),
+        ]
+
+    storage_cards = [
+        (
+            "Storage /",
+            _fmt(s.get("disk_pct"), " %"),
+            f"{s.get('disk_used_gb', 0):.0f} / {s.get('disk_total_gb', 0):.0f} GiB",
+            _series(history, "disk_pct"),
+            (0, 100),
+        ),
+        (
+            "Disk read",
+            _fmt(s.get("disk_read_mbps"), " MB/s"),
+            "",
+            _series(history, "disk_read_mbps"),
+            _auto_domain(_series(history, "disk_read_mbps")),
+        ),
+        (
+            "Disk write",
+            _fmt(s.get("disk_write_mbps"), " MB/s"),
+            "",
+            _series(history, "disk_write_mbps"),
+            _auto_domain(_series(history, "disk_write_mbps")),
+        ),
+    ]
+
+    _card_row(sys_cards)
     st.divider()
-    if gpu is not None:
-        g1, g2, g3, g4 = st.columns(4)
-        g1.metric("GPU util", _fmt(gpu.util_pct, " %"))
-        g2.metric("GPU temp", _fmt(gpu.temp_c, " °C"), delta_color="inverse")
-        g3.metric("GPU power", _fmt(gpu.power_w, " W"), f"limit {_fmt(gpu.power_limit_w, ' W')}")
-        g4.metric(
-            "VRAM",
-            _fmt(None if gpu.mem_used_mb is None else gpu.mem_used_mb / 1024, " GiB", 1),
-            f"of {(gpu.mem_total_mb or 0) / 1024:.0f} GiB",
-        )
+    if gpu_cards:
+        _card_row(gpu_cards)
     else:
         from llmrunner.hw_metrics import _nvml
 
@@ -97,18 +178,28 @@ def render_hardware() -> None:
             + ". Check the NVIDIA driver, or expose sensors through "
             "/sys/class/hwmon (read by the CPU temperature/power probes)."
         )
-
     st.divider()
-    t1, t2, t3 = st.columns(3)
-    with t1:
-        st.caption("CPU %")
-        _sparkline([(h.ts, h.sys.get("cpu_pct", 0.0)) for h in history])
-    with t2:
-        st.caption("Memory %")
-        _sparkline([(h.ts, h.sys.get("mem_pct", 0.0)) for h in history])
-    with t3:
-        st.caption("GPU util")
-        _sparkline([(h.ts, (h.gpu.util_pct or 0.0) if h.gpu else 0.0) for h in history])
+    _card_row(storage_cards, width=4)
+
+
+def _auto_domain(series: list[tuple[float, float]]) -> tuple[float, float]:
+    vals = [v for _, v in series if v is not None and not math.isnan(v)]
+    top = max(max(vals, default=50.0) * 1.2, 50.0)
+    return (0, float(int((top + 49) // 50 * 50)))
+
+
+def _card_row(cards, width: int = 4) -> None:
+    cols = st.columns(width)
+    for col, card in zip(cols, cards, strict=False):
+        label, value, sub, series, domain = card
+        with col:
+            st.metric(label, value)
+            if sub:
+                st.caption(sub)
+            _sparkline(series, domain)
+    for col in cols[len(cards):]:
+        with col:
+            st.write("")
 
 
 @st.fragment(run_every="3s")
