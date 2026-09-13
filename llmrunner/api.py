@@ -139,12 +139,16 @@ def api_stop(name: str, _: None = Depends(_require_token)) -> dict:
     return {"ok": ok, "output": output[-4000:]}
 
 
+TAIL_OPTIONS = (10, 20, 50, 100)
+
+
 @app.get("/api/logs")
-def api_logs(name: str, tail: int = 300) -> dict:
+def api_logs(name: str, tail: int = 20) -> dict:
     llm = _find(name)
     if not llm.container:
         raise HTTPException(status_code=400, detail=f"{name}: no 'container' set in llms.json")
-    tail = max(1, min(tail, 2000))
+    if tail not in TAIL_OPTIONS:
+        raise HTTPException(status_code=400, detail=f"invalid 'tail'={tail}; must be one of {', '.join(map(str, TAIL_OPTIONS))}")
     try:
         if config.is_sparkrun_type(llm.type):
             logs = control.sparkrun_logs(llm.container, tail)
