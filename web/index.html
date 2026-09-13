@@ -17,7 +17,7 @@
     <span class="live" id="livePill"><i></i> <span id="liveText">connecting…</span></span>
     <span class="nav">
       <button id="navDash" class="active">Dashboard</button>
-      <button id="navServers">Servers</button>
+      <button id="navServers">Logs</button>
     </span>
     <span class="spacer"></span>
     <button class="btn theme-toggle" id="themeToggle" title="Toggle light / dark">◐</button>
@@ -87,21 +87,10 @@
 
   </main>
 
-  <!-- ==================== SERVERS VIEW ==================== -->
+  <!-- ==================== LOGS VIEW ==================== -->
   <main id="viewServers" hidden>
     <section class="card servers">
       <div class="bar">
-        <details class="select" id="serverSelect">
-          <summary>
-            <span class="dot" id="srvDot"></span>
-            <span id="srvName">—</span>
-            <span class="tag" id="srvTag"></span>
-            <span class="caret"></span>
-          </summary>
-          <div class="menu" id="serverMenu"><div class="group">Available models</div></div>
-        </details>
-        <button class="btn primary" id="srvStart">Start</button>
-        <button class="btn danger-ghost" id="srvStop">Stop</button>
         <span class="spacer"></span>
         <label class="ctl">Lines
           <select id="logTail">
@@ -114,11 +103,11 @@
         <label class="ctl"><input type="checkbox" id="logAuto" checked> Auto refresh 5s</label>
         <button class="btn" id="logRefresh">Refresh</button>
       </div>
-      <div class="detail" id="srvDetail"></div>
+      <div class="detail" id="srvDetail">No model is running</div>
     </section>
     <section class="card logsbox">
       <div class="head"><span class="label">Container logs</span><span class="sub" id="logsMeta"></span></div>
-      <pre class="logs" id="logs">select a model…</pre>
+      <pre class="logs" id="logs">No model is running</pre>
     </section>
   </main>
 

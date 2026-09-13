@@ -8,7 +8,6 @@ const SPARK_H = 40;
 
 let llmList = [];
 let selected = localStorage.getItem("llmrunner-model");
-let srvSelected = localStorage.getItem("llmrunner-srv-model");
 let pollingHw = false;
 let pollingLlms = false;
 let busy = false;
@@ -182,15 +181,10 @@ function renderLlms(data) {
     selected = (llmList.find((l) => l.running) || llmList[0]).name;
     localStorage.setItem("llmrunner-model", selected);
   }
-  if (!byName(srvSelected)) {
-    srvSelected = (llmList.find((l) => l.running) || llmList[0]).name;
-    localStorage.setItem("llmrunner-srv-model", srvSelected);
-  }
 
   renderMenu("#modelMenu", 'name="model"', selected, "#selName, #selDot, #selTag");
-  renderMenu("#serverMenu", 'name="srvmodel"', srvSelected, "#srvName, #srvDot, #srvTag");
   renderHero(byName(selected));
-  renderServerBar(byName(srvSelected));
+  renderServerBar();
 }
 function renderMenu(menuSel, radioName, current, targets) {
   const menu = $(menuSel);
@@ -207,14 +201,8 @@ function renderMenu(menuSel, radioName, current, targets) {
       `<span><span class="name">${esc(llm.name)}</span><br><span class="ep">${esc(ep)}</span></span>` +
       `<span class="state ${st[0]}">${st[1]}</span>`;
     label.querySelector("input").addEventListener("change", () => {
-      if (radioName.includes("srv")) {
-        srvSelected = llm.name;
-        localStorage.setItem("llmrunner-srv-model", srvSelected);
-        fetchLogs(true);
-      } else {
-        selected = llm.name;
-        localStorage.setItem("llmrunner-model", selected);
-      }
+      selected = llm.name;
+      localStorage.setItem("llmrunner-model", selected);
       $(menuSel).closest("details").removeAttribute("open");
       pollNow();
     });
@@ -337,23 +325,19 @@ async function llmAction(name, action) {
 $("#btnStart").addEventListener("click", () => llmAction(selected, "start"));
 $("#btnStop").addEventListener("click", () => llmAction(selected, "stop"));
 $("#btnReload").addEventListener("click", () => pollNow());
-$("#srvStart").addEventListener("click", () => {
-  selected = srvSelected;
-  localStorage.setItem("llmrunner-model", selected);
-  llmAction(srvSelected, "start");
-});
-$("#srvStop").addEventListener("click", () => llmAction(srvSelected, "stop"));
 
-function renderServerBar(llm) {
-  $("#srvName").textContent = llm.name;
-  $("#srvName").title = llm.name;
-  $("#srvTag").textContent = llm.type;
-  $("#srvDot").classList.toggle("on", llm.running);
+function runningLlm() {
+  return llmList.find((l) => l.status === "running" || l.status === "starting");
+}
+function renderServerBar() {
+  const llm = runningLlm();
+  if (!llm) {
+    $("#srvDetail").textContent = "No model is running";
+    return;
+  }
   $("#srvDetail").textContent =
     `${heroState(llm)[1]} — ${llm.detail} — ${llm.endpoint}` +
     (llm.container_id ? ` — ${llm.container_id}` : "");
-  $("#srvStart").hidden = llm.running;
-  $("#srvStop").hidden = !llm.running;
 }
 
 /* ---------- logs ---------- */
@@ -362,9 +346,14 @@ $("#logs").addEventListener("scroll", function () {
   logsStick = this.scrollTop + this.clientHeight >= this.scrollHeight - 40;
 });
 async function fetchLogs(scrollToBottom = false) {
-  const llm = byName(srvSelected);
-  if (!llm || !llm.container_id) {
-    $("#logs").textContent = llm ? "no 'container_id' configured for this model" : "select a model…";
+  const llm = runningLlm();
+  if (!llm) {
+    $("#logs").textContent = "No model is running";
+    $("#logsMeta").textContent = "";
+    return;
+  }
+  if (!llm.container_id) {
+    $("#logs").textContent = "no 'container_id' configured for this model";
     return;
   }
   try {
