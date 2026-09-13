@@ -107,6 +107,7 @@ header {
 .live.off i { background: var(--err); box-shadow: 0 0 8px var(--err); }
 .live.off { color: var(--err); }
 @keyframes pulse { 50% { opacity: .35; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 .spacer { flex: 1; }
 
 .nav {
@@ -314,7 +315,14 @@ main[hidden] { display: none; }
   background: color-mix(in srgb, var(--warn) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
 }
-.llm .status.starting i { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.llm .status.starting i {
+  width: 11px; height: 11px;
+  background: transparent; box-shadow: none;
+  border: 2px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  border-top-color: var(--warn);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
 .llm .status.stopped { color: var(--faint); background: var(--chip-bg); border: 1px solid var(--border); }
 .llm .status.stopped i { background: var(--faint); }
 
