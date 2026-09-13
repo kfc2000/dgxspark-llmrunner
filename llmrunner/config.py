@@ -5,7 +5,12 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-VALID_TYPES = {"docker_vllm", "docker_sglang"}
+VALID_TYPES = {"docker_vllm", "docker_sglang", "sparkrun_vllm", "sparkrun_sglang"}
+SPARKRUN_TYPES = {"sparkrun_vllm", "sparkrun_sglang"}
+
+
+def is_sparkrun_type(llm_type: str) -> bool:
+    return llm_type in SPARKRUN_TYPES
 
 DEFAULT_CONFIG_PATH = os.environ.get("LLMRUNNER_CONFIG", "llms.json")
 

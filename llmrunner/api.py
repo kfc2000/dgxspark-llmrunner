@@ -146,7 +146,10 @@ def api_logs(name: str, tail: int = 300) -> dict:
         raise HTTPException(status_code=400, detail=f"{name}: no 'container' set in llms.json")
     tail = max(1, min(tail, 2000))
     try:
-        logs = control.container_logs(llm.container, tail)
+        if config.is_sparkrun_type(llm.type):
+            logs = control.sparkrun_logs(llm.container, tail)
+        else:
+            logs = control.container_logs(llm.container, tail)
     except control.ControlError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"logs": logs, "lines": len(logs.splitlines())}

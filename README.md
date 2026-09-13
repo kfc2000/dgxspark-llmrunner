@@ -7,7 +7,8 @@ page for:
 - **Hardware telemetry** — CPU utilization / temperature / power, GPU utilization /
   temperature / power / VRAM, RAM and storage usage, with live sparkline charts.
 - **LLM metrics** — decode (generation) and prefill tokens/sec, scraped from each server's
-  Prometheus `/metrics` endpoint. Supports `docker_vllm` and `docker_sglang`.
+  Prometheus `/metrics` endpoint. Supports `docker_vllm`, `docker_sglang`, `sparkrun_vllm`,
+  and `sparkrun_sglang`.
 - **Server control** — start/stop each LLM by running its configured bash scripts, see
   container status and `docker logs` in the browser. **Single-model mode:** only one LLM can
   run at a time (the GB10 can't hold two large models); starting a model stops any loaded
@@ -36,12 +37,12 @@ Every entry needs:
 | Key | Meaning |
 |---|---|
 | `name` | Display name |
-| `type` | `docker_vllm` or `docker_sglang` |
+| `type` | `docker_vllm`, `docker_sglang`, `sparkrun_vllm`, or `sparkrun_sglang` |
 | `workdir` | Directory the scripts run in |
 | `start_script` | Bash command run to start the server (e.g. `./start.sh`) |
 | `stop_script` | Bash command run to stop the server |
 | `endpoint` | (optional, default `http://localhost:8000`) base URL of the OpenAI-compatible server; metrics are read from `<endpoint>/metrics` |
-| `container` | (optional) docker container name — enables status checks and the log viewer |
+| `container` | (optional) for `docker_*` types, the docker container name — enables status checks and the log viewer. For `sparkrun_*` types it holds the recipe/target name passed to `sparkrun logs` |
 
 ```json
 {
@@ -54,10 +55,22 @@ Every entry needs:
       "stop_script": "./stop.sh",
       "endpoint": "http://localhost:8000",
       "container": "vllm-qwen3"
+    },
+    {
+      "name": "qwen3.8-27b",
+      "type": "sparkrun_vllm",
+      "workdir": "/home/kfc/llms/qwen3.8-27b",
+      "start_script": "./qwen3.8-27b.sh",
+      "stop_script": "./stop.sh",
+      "endpoint": "http://localhost:8000",
+      "container": "qwen3.8-27b"
     }
   ]
 }
 ```
+
+For `sparkrun_*` types the `container` value is the recipe/target name passed to
+`sparkrun logs <target>` (the log viewer queries sparkrun instead of `docker logs`).
 
 ### How throughput is computed
 

@@ -1,5 +1,5 @@
 from llmrunner.config import LLMConfig
-from llmrunner.control import START_TIMEOUT_S, container_logs, running_llms, start_llm
+from llmrunner.control import START_TIMEOUT_S, container_logs, is_llm_running, running_llms, sparkrun_logs, start_llm
 
 
 class _FakeResult:
@@ -9,7 +9,7 @@ class _FakeResult:
         self.returncode = returncode
 
 
-def _patch_docker(monkeypatch, result: _FakeResult) -> list[list[str]]:
+def _patch_run(monkeypatch, result: _FakeResult) -> list[list[str]]:
     calls: list[list[str]] = []
 
     def fake_run(args, **kwargs):  # noqa: ANN001
@@ -21,17 +21,31 @@ def _patch_docker(monkeypatch, result: _FakeResult) -> list[list[str]]:
 
 
 def test_container_logs_tail(monkeypatch) -> None:
-    calls = _patch_docker(monkeypatch, _FakeResult(stdout="a\nb\n"))
+    calls = _patch_run(monkeypatch, _FakeResult(stdout="a\nb\n"))
     out = container_logs("sglang-x", 300)
     assert calls == [["docker", "logs", "--tail", "300", "sglang-x"]]
     assert out == "a\nb\n"
 
 
 def test_container_logs_all(monkeypatch) -> None:
-    calls = _patch_docker(monkeypatch, _FakeResult(stdout="raw\r\nline"))
+    calls = _patch_run(monkeypatch, _FakeResult(stdout="raw\r\nline"))
     out = container_logs("sglang-x", None)
     assert calls == [["docker", "logs", "sglang-x"]]
     assert out == "raw\r\nline"
+
+
+def test_sparkrun_logs_tail(monkeypatch) -> None:
+    calls = _patch_run(monkeypatch, _FakeResult(stdout="a\nb\n"))
+    out = sparkrun_logs("qwen3.8-27b", 200)
+    assert calls == [["sparkrun", "logs", "qwen3.8-27b", "-n", "200"]]
+    assert out == "a\nb\n"
+
+
+def test_sparkrun_logs_all(monkeypatch) -> None:
+    calls = _patch_run(monkeypatch, _FakeResult(stdout="raw"))
+    out = sparkrun_logs("qwen3.8-27b", None)
+    assert calls == [["sparkrun", "logs", "qwen3.8-27b"]]
+    assert out == "raw"
 
 
 def test_start_timeout_is_30_minutes() -> None:
@@ -83,3 +97,18 @@ def test_running_llms_filters_by_status(monkeypatch) -> None:
     )
     out = running_llms([_llm("a"), _llm("b")])
     assert [llm.name for llm in out] == ["a"]
+
+
+def test_is_llm_running_sparkrun_uses_endpoint(monkeypatch) -> None:
+    llm = LLMConfig(
+        name="qwen3.8-27b",
+        type="sparkrun_vllm",
+        workdir="/tmp",
+        start_script="./start.sh",
+        stop_script="./stop.sh",
+        endpoint="http://localhost:8000",
+        container="qwen3.8-27b",
+    )
+    monkeypatch.setattr("llmrunner.control.endpoint_alive", lambda ep: True)
+    running, detail = is_llm_running(llm)
+    assert running and "endpoint responding" in detail

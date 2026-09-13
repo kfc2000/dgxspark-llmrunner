@@ -2,29 +2,37 @@ from __future__ import annotations
 
 import subprocess
 
-from llmrunner.config import LLMConfig
+from llmrunner.config import LLMConfig, is_sparkrun_type
 
 
 class ControlError(Exception):
     pass
 
 
-def _docker(args: list[str], timeout: float = 15.0, merge_stderr: bool = False) -> str:
+def _run_cmd(cmd: list[str], timeout: float, merge_stderr: bool = False) -> str:
     try:
         out = subprocess.run(
-            ["docker", *args],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE,
             text=True,
             timeout=timeout,
         )
     except FileNotFoundError as exc:
-        raise ControlError("docker CLI not found on PATH") from exc
+        raise ControlError(f"{cmd[0]} CLI not found on PATH") from exc
     except subprocess.TimeoutExpired as exc:
-        raise ControlError(f"`docker {' '.join(args)}` timed out") from exc
+        raise ControlError(f"`{' '.join(cmd)}` timed out") from exc
     if out.returncode != 0:
-        raise ControlError((out.stderr or out.stdout).strip() or f"docker {' '.join(args)} failed")
+        raise ControlError((out.stderr or out.stdout).strip() or f"{' '.join(cmd)} failed")
     return out.stdout
+
+
+def _docker(args: list[str], timeout: float = 15.0, merge_stderr: bool = False) -> str:
+    return _run_cmd(["docker", *args], timeout, merge_stderr)
+
+
+def _sparkrun(args: list[str], timeout: float = 15.0, merge_stderr: bool = False) -> str:
+    return _run_cmd(["sparkrun", *args], timeout, merge_stderr)
 
 
 def container_status(name: str) -> str | None:
@@ -42,6 +50,13 @@ def container_logs(name: str, tail: int | None = 300) -> str:
         args += ["--tail", str(tail)]
     args.append(name)
     return _docker(args, timeout=30.0, merge_stderr=True)
+
+
+def sparkrun_logs(target: str, tail: int | None = 300) -> str:
+    args = ["logs", target]
+    if tail is not None:
+        args += ["-n", str(tail)]
+    return _sparkrun(args, timeout=30.0, merge_stderr=True)
 
 
 def running_containers() -> list[str]:
@@ -66,6 +81,9 @@ def endpoint_alive(endpoint: str, timeout: float = 2.0) -> bool:
 
 
 def is_llm_running(llm: LLMConfig) -> tuple[bool, str]:
+    if is_sparkrun_type(llm.type):
+        alive = endpoint_alive(llm.endpoint)
+        return alive, "endpoint responding" if alive else "endpoint unreachable"
     if llm.container:
         status = container_status(llm.container)
         if status is None:
