@@ -10,6 +10,7 @@ let llmList = [];
 let selected = localStorage.getItem("llmrunner-model");
 let pollingHw = false;
 let pollingLlms = false;
+let pollingMetrics = false;
 let busy = false;
 
 /* ---------- theme ---------- */
@@ -224,7 +225,9 @@ function renderHero(llm) {
   $("#btnStop").hidden = !llm.running;
   $("#btnReload").hidden = !llm.running;
   $("#btnStart").textContent = llmList.some((o) => o !== llm && o.running) ? "Swap & Start" : "Start";
-
+  renderThroughput(llm);
+}
+function renderThroughput(llm) {
   const hist = llm.history || [];
   const decode = llm.reachable ? llm.decode_tps : null;
   const prefill = llm.reachable ? llm.prefill_tps : null;
@@ -417,8 +420,21 @@ async function pollLlms() {
     pollingLlms = false;
   }
 }
+async function pollMetrics() {
+  if (pollingMetrics) return;
+  pollingMetrics = true;
+  try {
+    const res = await jget("/api/llms/metrics");
+    const m = (res.llms || []).find((l) => l.name === selected);
+    if (m) renderThroughput(m);
+  } catch (e) {
+    /* hw/status poll reports offline */
+  } finally {
+    pollingMetrics = false;
+  }
+}
 async function pollNow() {
-  await Promise.all([pollHw(), pollLlms()]);
+  await Promise.all([pollHw(), pollLlms(), pollMetrics()]);
 }
 
 buildCards("sys", CARDS.sys);
@@ -427,4 +443,5 @@ buildCards("storage", CARDS.storage);
 pollNow();
 setInterval(pollHw, 1000);
 setInterval(pollLlms, 5000);
+setInterval(pollMetrics, 1000);
 logsTimer = setInterval(logsTick, 5000);

@@ -20,7 +20,7 @@ page for:
 | Path | Purpose |
 |---|---|
 | `llmrunner/api.py` | FastAPI app: JSON API + serves the single-page frontend (`uvicorn llmrunner.api:app`) |
-| `web/index.html` / `web/app.js` / `web/style.css` | The whole frontend: dashboard + servers/logs views. Hardware polls every 1s; LLM server status (which loops all models) polls every 5s |
+| `web/index.html` / `web/app.js` / `web/style.css` | The whole frontend: dashboard + servers/logs views. Hardware and LLM throughput poll every 1s; LLM server status (which loops all models) polls every 5s |
 | `prototype/index.html` | Static design prototype the UI is modeled on |
 | `llmrunner/config.py` | Loads/validates `llms.json` |
 | `llmrunner/hw_metrics.py` | NVML (GPU) + psutil + `/sys/class/hwmon` (CPU temp/power) probes |

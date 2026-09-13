@@ -97,6 +97,16 @@ def api_hw() -> dict:
     }
 
 
+def _metrics_payload(rates, reachable: bool) -> dict:
+    return {
+        "decode_tps": rates.decode_tps if reachable else None,
+        "prefill_tps": rates.prefill_tps if reachable else None,
+        "running_requests": rates.running_requests if reachable else None,
+        "history": [{"ts": p["ts"], "decode_tps": p["decode_tps"],
+                     "prefill_tps": p["prefill_tps"]} for p in rates.history] if reachable else [],
+    }
+
+
 @app.get("/api/llms")
 def api_llms() -> dict:
     out = []
@@ -115,11 +125,21 @@ def api_llms() -> dict:
             "status": status,
             "detail": detail,
             "reachable": reachable,
-            "decode_tps": rates.decode_tps if reachable else None,
-            "prefill_tps": rates.prefill_tps if reachable else None,
-            "running_requests": rates.running_requests if reachable else None,
-            "history": [{"ts": p["ts"], "decode_tps": p["decode_tps"],
-                         "prefill_tps": p["prefill_tps"]} for p in rates.history] if reachable else [],
+            **_metrics_payload(rates, reachable),
+        })
+    return {"llms": out}
+
+
+@app.get("/api/llms/metrics")
+def api_llms_metrics() -> dict:
+    out = []
+    for llm in _load_llms():
+        rates = tracker.latest(llm.name)
+        reachable = bool(rates and rates.reachable)
+        out.append({
+            "name": llm.name,
+            "reachable": reachable,
+            **_metrics_payload(rates, reachable),
         })
     return {"llms": out}
 
