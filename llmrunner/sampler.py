@@ -18,7 +18,7 @@ class HwSample:
 
 
 class HwSampler:
-    def __init__(self, interval_s: float = 2.0) -> None:
+    def __init__(self, interval_s: float = 1.0) -> None:
         self.interval_s = interval_s
         self.history: deque[HwSample] = deque(maxlen=MAX_POINTS)
         self.latest: HwSample | None = None

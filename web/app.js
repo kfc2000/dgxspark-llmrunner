@@ -66,8 +66,7 @@ function peak(pairs) {
 
 /* ---------- sparkline on a fixed 5-minute time axis ---------- */
 function sparkPath(pairs, domain) {
-  let pts = inWindow(pairs);
-  if (pts.length > 60) pts = pts.filter((_, i) => i % Math.ceil(pts.length / 60) === 0);
+  const pts = inWindow(pairs);
   if (pts.length < 2) return "";
   let lo, hi;
   if (domain) [lo, hi] = domain;
@@ -409,7 +408,7 @@ async function pollNow() {
     if (hw.ready) renderHw(hw);
     renderLlms(lres);
     $("#livePill").classList.remove("off");
-    $("#liveText").textContent = "live · 2s";
+    $("#liveText").textContent = "live · 1s";
   } catch (e) {
     $("#livePill").classList.add("off");
     $("#liveText").textContent = "offline";
@@ -422,5 +421,5 @@ buildCards("sys", CARDS.sys);
 buildCards("gpu", CARDS.gpu);
 buildCards("storage", CARDS.storage);
 pollNow();
-setInterval(pollNow, 2000);
+setInterval(pollNow, 1000);
 logsTimer = setInterval(logsTick, 5000);
