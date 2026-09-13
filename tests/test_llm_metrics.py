@@ -1,4 +1,4 @@
-from llmrunner.llm_metrics import parse_prometheus
+from llmrunner.llm_metrics import parse_prometheus, sum_by_label
 
 SAMPLE = """\
 # HELP vllm:prompt_tokens_total Total number of prompt tokens processed
@@ -28,6 +28,21 @@ def test_parser_ignores_comments_and_garbage():
 def test_parser_value_with_spaces_in_labels():
     totals = parse_prometheus('metric{label="a b"} 7.5')
     assert totals["metric"] == 7.5
+
+
+def test_sum_by_label_groups_by_mode():
+    text = '\n'.join([
+        'sglang:realtime_tokens_total{mode="decode"} 100.0',
+        'sglang:realtime_tokens_total{mode="prefill_compute"} 200.0',
+        'sglang:realtime_tokens_total{model="q",mode="prefill_cache"} 30.0',
+    ])
+    grouped = sum_by_label(text, "sglang:realtime_tokens_total", "mode")
+    assert grouped == {"decode": 100.0, "prefill_compute": 200.0, "prefill_cache": 30.0}
+
+
+def test_sum_by_label_ignores_other_metrics():
+    text = 'sglang:gen_throughput 12.0\nsglang:realtime_tokens_total{mode="decode"} 5.0'
+    assert sum_by_label(text, "sglang:realtime_tokens_total", "mode") == {"decode": 5.0}
 
 
 def test_two_scrapes_compute_rates_without_keyerror(monkeypatch):
@@ -129,6 +144,55 @@ def test_sglang_uses_live_gen_throughput_gauge(monkeypatch):
     assert second.decode_tps == 25.0  # gauge read directly
     assert second.prefill_tps == 40.0  # (180 - 100) / 2s
     assert second.running_requests == 2.0  # sglang:num_running_reqs
+
+
+def test_sglang_realtime_tokens_delta_is_preferred(monkeypatch):
+    from llmrunner.llm_metrics import LlmMetricTracker
+
+    class _Clock:
+        def __init__(self):
+            self.value = 1000.0
+
+        def __call__(self):
+            return self.value
+
+    clock = _Clock()
+    monkeypatch.setattr("llmrunner.llm_metrics.time.time", clock)
+
+    def make_resp(**counters):
+        text = "\n".join(f"{k} {v}" for k, v in counters.items())
+
+        class _Resp:
+            raise_for_status = lambda: None  # noqa: E731
+
+        _Resp.text = text
+        return _Resp
+
+    counters = {
+        'sglang:realtime_tokens_total{mode="decode"}': 100.0,
+        'sglang:realtime_tokens_total{mode="prefill_compute"}': 200.0,
+        'sglang:realtime_tokens_total{mode="prefill_cache"}': 30.0,
+        "sglang:gen_throughput": 12.0,
+    }
+
+    def fake_get(url, timeout):
+        return make_resp(**counters)
+
+    tracker = LlmMetricTracker()
+    monkeypatch.setattr("llmrunner.llm_metrics.requests.get", fake_get)
+
+    tracker.scrape("m", "http://x")  # seeds counters
+
+    clock.value += 2.0
+    counters['sglang:realtime_tokens_total{mode="decode"}'] = 160.0
+    counters['sglang:realtime_tokens_total{mode="prefill_compute"}'] = 240.0
+    # prefill_cache unchanged at 30.0
+    counters["sglang:gen_throughput"] = 12.0  # gauge unchanged
+
+    second = tracker.scrape("m", "http://x")
+
+    assert second.decode_tps == 30.0  # (160 - 100) / 2s, not the stale gauge
+    assert second.prefill_tps == 20.0  # ((240-200)+(30-30)) / 2s
 
 
 def test_background_tick_collects_and_latest_returns_cached(monkeypatch):

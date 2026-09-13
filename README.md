@@ -97,14 +97,15 @@ vLLM and SGLang expose cumulative counters (`vllm:prompt_tokens_total`,
 server's `/metrics` every 1s and computes per-second deltas, independent of the 5s
 status poll, so the throughput history stays smooth:
 
-- **Decode tok/s** = Δ generation tokens / Δ time (vLLM). For SGLang the live
-  `sglang:gen_throughput` gauge (tokens/s) is read directly, since SGLang only bumps
+- **Decode tok/s** = Δ generation tokens / Δ time (vLLM). For SGLang it uses the
+  per-iteration `sglang:realtime_tokens_total{mode="decode"}` counter delta (smooth at
+  1s), falling back to the `sglang:gen_throughput` gauge, since SGLang only bumps
   `generation_tokens_total` when a request finishes and would otherwise read 0 during
   a stream.
 - **Prefill tok/s** = Δ prompt tokens / Δ `vllm:request_prefill_time_seconds_sum`
   (falls back to Δ prompt tokens / Δ time when the timer isn't exposed). SGLang
-  exposes no prefill-time timer, so it uses `sglang:prefill_effective_tokens_total`
-  deltas (updated per log interval) instead.
+  exposes no prefill-time timer, so it uses `sglang:realtime_tokens_total` prefill
+  modes (then `sglang:prefill_effective_tokens_total`) deltas instead.
 
 Metrics only move while the server is actually generating; idle servers read 0.
 

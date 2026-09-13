@@ -28,9 +28,13 @@ PREFILL_TIME_METRICS = (
 )
 # SGLang bumps prompt/generation_tokens_total only when a request finishes, so
 # deltas of those counters read 0 while a stream is in flight. Prefer the live
-# gauge / log-interval counters that move during generation.
+# gauge / log-interval counters that move during generation. gen_throughput is
+# a windowed average refreshed only every decode_log_interval (default 40 decode
+# iterations), so it steps every few seconds; realtime_tokens_total increments
+# every iteration and is the smoothest per-second source.
 GEN_THROUGHPUT_GAUGES = ("sglang:gen_throughput",)
 PREFILL_EFFECTIVE_METRICS = ("sglang:prefill_effective_tokens_total",)
+REALTIME_TOKENS_METRIC = "sglang:realtime_tokens_total"
 
 
 def parse_prometheus(text: str) -> dict[str, float]:
@@ -49,6 +53,37 @@ def parse_prometheus(text: str) -> dict[str, float]:
             continue
         totals[name] = totals.get(name, 0.0) + value
     return totals
+
+
+def sum_by_label(text: str, metric: str, label: str = "mode") -> dict[str, float]:
+    """Sum one Prometheus metric's series grouped by a label value.
+
+    e.g. for ``sglang:realtime_tokens_total{mode="decode"}`` returns
+    ``{"decode": <sum>}`` so decode and prefill token counts can be separated.
+    """
+    result: dict[str, float] = {}
+    prefix = metric + "{"
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        parts = line.rsplit(" ", 1) if " " in line else []
+        if len(parts) != 2:
+            continue
+        ident, raw_value = parts
+        if not ident.startswith(prefix):
+            continue
+        try:
+            value = float(raw_value)
+        except ValueError:
+            continue
+        inner = ident[ident.find("{") + 1: ident.rfind("}")]
+        for piece in inner.split(","):
+            key, _, val = piece.partition("=")
+            if key.strip() == label:
+                lv = val.strip().strip('"')
+                result[lv] = result.get(lv, 0.0) + value
+                break
+    return result
 
 
 def _lookup(totals: dict[str, float], names: tuple[str, ...]) -> float | None:
@@ -151,6 +186,12 @@ class LlmMetricTracker:
         running = _lookup(totals, RUNNING_METRICS)
         gen_tps = _lookup(totals, GEN_THROUGHPUT_GAUGES)
         prefill_eff = _lookup(totals, PREFILL_EFFECTIVE_METRICS)
+        rt = sum_by_label(resp.text, REALTIME_TOKENS_METRIC, "mode")
+        rt_decode = rt.get("decode") if rt else None
+        rt_prefill = (
+            (rt.get("prefill_compute", 0.0) + rt.get("prefill_cache", 0.0))
+            if rt else None
+        )
         now = time.time()
         counters = {
             "prompt": prompt,
@@ -158,6 +199,8 @@ class LlmMetricTracker:
             "prefill_s": prefill_s,
             "gen_tps": gen_tps,
             "prefill_eff": prefill_eff,
+            "rt_decode": rt_decode,
+            "rt_prefill": rt_prefill,
             "now": now,
         }
 
@@ -168,20 +211,29 @@ class LlmMetricTracker:
             rates = self._rates.get(name) or LlmRates(name=name, endpoint=endpoint)
             rates.endpoint = endpoint
             dt = counters["now"] - prev[1]["now"] if prev is not None else 0.0
-            # Decode tok/s: SGLang exports a live gen_throughput gauge (tokens/s)
-            # that moves while a stream is in flight. Fall back to the delta of
-            # the cumulative generation-token counter for vLLM.
-            if gen_tps is not None:
+            # Decode tok/s: prefer the per-iteration realtime_tokens_total delta
+            # (smooth at 1s), then the gen_throughput gauge (windowed every
+            # decode_log_interval), then the generation-token counter delta.
+            if prev is not None and dt > 0.5:
+                if rt_decode is not None and prev[1]["rt_decode"] is not None:
+                    d_rt = rt_decode - prev[1]["rt_decode"]
+                    if d_rt >= 0:
+                        decode_tps = d_rt / dt
+            if decode_tps is None and gen_tps is not None:
                 decode_tps = gen_tps
             elif prev is not None and dt > 0.5:
                 if generated is not None and prev[1]["generated"] is not None:
                     d_gen = generated - prev[1]["generated"]
                     if d_gen >= 0:
                         decode_tps = d_gen / dt
-            # Prefill tok/s: prefer the per-log-interval counter delta, then the
-            # prefill-time-based rate, then prompt-token delta over wall time.
+            # Prefill tok/s: per-iteration realtime delta, then per-log-interval
+            # counter delta, then prefill-time rate, then prompt-token delta.
             if prev is not None and dt > 0.5:
-                if prefill_eff is not None and prev[1]["prefill_eff"] is not None:
+                if rt_prefill is not None and prev[1]["rt_prefill"] is not None:
+                    d_rt = rt_prefill - prev[1]["rt_prefill"]
+                    if d_rt >= 0:
+                        prefill_tps = d_rt / dt
+                elif prefill_eff is not None and prev[1]["prefill_eff"] is not None:
                     d_pref = prefill_eff - prev[1]["prefill_eff"]
                     if d_pref >= 0:
                         prefill_tps = d_pref / dt
