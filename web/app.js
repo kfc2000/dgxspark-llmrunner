@@ -9,7 +9,8 @@ const SPARK_H = 40;
 let llmList = [];
 let selected = localStorage.getItem("llmrunner-model");
 let srvSelected = localStorage.getItem("llmrunner-srv-model");
-let polling = false;
+let pollingHw = false;
+let pollingLlms = false;
 let busy = false;
 
 /* ---------- theme ---------- */
@@ -170,8 +171,8 @@ function byName(name) {
   return llmList.find((l) => l.name === name);
 }
 function heroState(llm) {
-  if (llm.running && llm.reachable) return ["running", "RUNNING"];
-  if (llm.running) return ["starting", "STARTING"];
+  if (llm.status === "running") return ["running", "RUNNING"];
+  if (llm.status === "starting") return ["starting", "STARTING"];
   return ["stopped", "STOPPED"];
 }
 function renderLlms(data) {
@@ -350,7 +351,7 @@ function renderServerBar(llm) {
   $("#srvDot").classList.toggle("on", llm.running);
   $("#srvDetail").textContent =
     `${heroState(llm)[1]} — ${llm.detail} — ${llm.endpoint}` +
-    (llm.container ? ` — ${llm.container}` : "");
+    (llm.container_id ? ` — ${llm.container_id}` : "");
   $("#srvStart").hidden = llm.running;
   $("#srvStop").hidden = !llm.running;
 }
@@ -362,15 +363,15 @@ $("#logs").addEventListener("scroll", function () {
 });
 async function fetchLogs(scrollToBottom = false) {
   const llm = byName(srvSelected);
-  if (!llm || !llm.container) {
-    $("#logs").textContent = llm ? "no 'container' configured for this model" : "select a model…";
+  if (!llm || !llm.container_id) {
+    $("#logs").textContent = llm ? "no 'container_id' configured for this model" : "select a model…";
     return;
   }
   try {
     const r = await jget(`/api/logs?name=${encodeURIComponent(llm.name)}&tail=${$("#logTail").value}`);
     const pre = $("#logs");
     pre.textContent = r.logs || "(no output)";
-    $("#logsMeta").textContent = `${r.lines} lines · ${llm.container}`;
+    $("#logsMeta").textContent = `${r.lines} lines · ${llm.container_id}`;
     if (scrollToBottom || logsStick) pre.scrollTop = pre.scrollHeight;
   } catch (e) {
     $("#logs").textContent = e.message;
@@ -400,26 +401,41 @@ $("#footLink").addEventListener("click", (e) => {
 });
 
 /* ---------- main polling loop ---------- */
-async function pollNow() {
-  if (polling) return;
-  polling = true;
+async function pollHw() {
+  if (pollingHw) return;
+  pollingHw = true;
   try {
-    const [hw, lres] = await Promise.all([jget("/api/hw"), jget("/api/llms")]);
+    const hw = await jget("/api/hw");
     if (hw.ready) renderHw(hw);
-    renderLlms(lres);
     $("#livePill").classList.remove("off");
     $("#liveText").textContent = "live · 1s";
   } catch (e) {
     $("#livePill").classList.add("off");
     $("#liveText").textContent = "offline";
   } finally {
-    polling = false;
+    pollingHw = false;
   }
+}
+async function pollLlms() {
+  if (pollingLlms) return;
+  pollingLlms = true;
+  try {
+    const lres = await jget("/api/llms");
+    renderLlms(lres);
+  } catch (e) {
+    /* hw poll reports offline */
+  } finally {
+    pollingLlms = false;
+  }
+}
+async function pollNow() {
+  await Promise.all([pollHw(), pollLlms()]);
 }
 
 buildCards("sys", CARDS.sys);
 buildCards("gpu", CARDS.gpu);
 buildCards("storage", CARDS.storage);
 pollNow();
-setInterval(pollNow, 1000);
+setInterval(pollHw, 1000);
+setInterval(pollLlms, 5000);
 logsTimer = setInterval(logsTick, 5000);

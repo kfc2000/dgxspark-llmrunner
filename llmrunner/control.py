@@ -59,6 +59,18 @@ def sparkrun_logs(target: str, tail: int | None = 300) -> str:
     return _sparkrun(args, timeout=30.0, merge_stderr=True)
 
 
+def sparkrun_status(timeout: float = 15.0) -> str:
+    return _sparkrun(["status"], timeout, merge_stderr=True)
+
+
+def sparkrun_process_running(sparkrun_id: str) -> bool:
+    try:
+        out = sparkrun_status()
+    except ControlError:
+        return False
+    return any(sparkrun_id in line for line in out.splitlines())
+
+
 def running_containers() -> list[str]:
     try:
         out = _docker(["ps", "--format", "{{.Names}}"])
@@ -80,19 +92,55 @@ def endpoint_alive(endpoint: str, timeout: float = 2.0) -> bool:
     return False
 
 
-def is_llm_running(llm: LLMConfig) -> tuple[bool, str]:
+def models_served(endpoint: str, timeout: float = 2.0) -> list[str]:
+    import requests
+
+    try:
+        r = requests.get(endpoint.rstrip("/") + "/v1/models", timeout=timeout)
+        if r.status_code >= 500:
+            return []
+        data = r.json()
+    except Exception:
+        return []
+    return [str(item.get("id")) for item in data.get("data", []) if item.get("id")]
+
+
+def model_available(endpoint: str, model_name: str, timeout: float = 2.0) -> bool:
+    return model_name in models_served(endpoint, timeout)
+
+
+def container_active(name: str) -> bool:
+    status = container_status(name)
+    if status is None:
+        return False
+    s = status.lower()
+    return s.startswith("up") or s.startswith("restarting")
+
+
+def llm_status(llm: LLMConfig) -> tuple[str, str]:
+    """Return (state, detail) where state is 'running', 'starting', or 'stopped'.
+
+    'running' means the model name is served at the /v1/models endpoint;
+    'starting' means the LLM's sparkrun process or docker container is present
+    but the model isn't ready yet.
+    """
+    if model_available(llm.endpoint, llm.name):
+        return "running", "model served at /v1/models"
     if is_sparkrun_type(llm.type):
-        alive = endpoint_alive(llm.endpoint)
-        return alive, "endpoint responding" if alive else "endpoint unreachable"
-    if llm.container:
-        status = container_status(llm.container)
-        if status is None:
-            return False, "container not found"
-        if status.lower().startswith("up"):
-            return True, status
-        return False, status
-    alive = endpoint_alive(llm.endpoint)
-    return alive, "endpoint responding" if alive else "endpoint unreachable"
+        if llm.sparkrun_id and sparkrun_process_running(llm.sparkrun_id):
+            return "starting", "sparkrun process running"
+        if llm.container_id and container_active(llm.container_id):
+            return "starting", container_status(llm.container_id) or "container present"
+    elif llm.container_id and container_active(llm.container_id):
+        return "starting", container_status(llm.container_id) or "container present"
+    if endpoint_alive(llm.endpoint):
+        return "starting", "endpoint responding but model not served"
+    return "stopped", "not running"
+
+
+def is_llm_running(llm: LLMConfig) -> tuple[bool, str]:
+    state, detail = llm_status(llm)
+    return state != "stopped", detail
 
 
 START_TIMEOUT_S = 30 * 60

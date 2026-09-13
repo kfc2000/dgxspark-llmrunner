@@ -33,7 +33,8 @@ class LLMConfig:
     start_script: str
     stop_script: str
     endpoint: str = "http://localhost:8000"
-    container: str | None = None
+    container_id: str | None = None
+    sparkrun_id: str | None = None
     raw: dict = field(default_factory=dict, repr=False)
 
 
@@ -79,7 +80,8 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> list[LLMConfig]:
                 start_script=item["start_script"],
                 stop_script=item["stop_script"],
                 endpoint=str(item.get("endpoint", "http://localhost:8000")).rstrip("/"),
-                container=item.get("container"),
+                container_id=item.get("container_id", item.get("container")),
+                sparkrun_id=item.get("sparkrun_id"),
                 raw=item,
             )
         )

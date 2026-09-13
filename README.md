@@ -12,14 +12,15 @@ page for:
 - **Server control** — start/stop each LLM by running its configured bash scripts, see
   container status and `docker logs` in the browser. **Single-model mode:** only one LLM can
   run at a time (the GB10 can't hold two large models); starting a model stops any loaded
-  one first, and the start aborts if that stop fails.
+  one first, and the start aborts if that stop fails. Before every start/stop the API
+  re-checks all models' live statuses so it never loads two models at once (avoids OOM).
 
 ## Screens / files
 
 | Path | Purpose |
 |---|---|
 | `llmrunner/api.py` | FastAPI app: JSON API + serves the single-page frontend (`uvicorn llmrunner.api:app`) |
-| `web/index.html` / `web/app.js` / `web/style.css` | The whole frontend: dashboard + servers/logs views, polling every 1s |
+| `web/index.html` / `web/app.js` / `web/style.css` | The whole frontend: dashboard + servers/logs views. Hardware polls every 1s; LLM server status (which loops all models) polls every 5s |
 | `prototype/index.html` | Static design prototype the UI is modeled on |
 | `llmrunner/config.py` | Loads/validates `llms.json` |
 | `llmrunner/hw_metrics.py` | NVML (GPU) + psutil + `/sys/class/hwmon` (CPU temp/power) probes |
@@ -42,7 +43,8 @@ Every entry needs:
 | `start_script` | Bash command run to start the server (e.g. `./start.sh`) |
 | `stop_script` | Bash command run to stop the server |
 | `endpoint` | (optional, default `http://localhost:8000`) base URL of the OpenAI-compatible server; metrics are read from `<endpoint>/metrics` |
-| `container` | (optional) for `docker_*` types, the docker container name — enables status checks and the log viewer. For `sparkrun_*` types it holds the recipe/target name passed to `sparkrun logs` |
+| `container_id` | (optional) the docker container name (for `docker_*` types) or the sparkrun target/recipe name (for `sparkrun_*` types). Used for status checks and the log viewer. Backward-compatible with the old `container` key |
+| `sparkrun_id` | (optional) for `sparkrun_*` types, the identifier used to query `sparkrun status`/`sparkrun logs` to detect whether the sparkrun process is running. Defaults to `container_id` |
 | `sparkrun_path` | (optional, top-level) absolute path to the `sparkrun` executable. Defaults to `sparkrun` on `PATH` (or the `SPARKRUN_PATH` env var). Set this if the service can't find `sparkrun` |
 
 ```json
@@ -56,7 +58,7 @@ Every entry needs:
       "start_script": "./start.sh",
       "stop_script": "./stop.sh",
       "endpoint": "http://localhost:8000",
-      "container": "vllm-qwen3"
+      "container_id": "vllm-qwen3"
     },
     {
       "name": "qwen3.8-27b",
@@ -65,15 +67,27 @@ Every entry needs:
       "start_script": "./qwen3.8-27b.sh",
       "stop_script": "./stop.sh",
       "endpoint": "http://localhost:8000",
-      "container": "qwen3.8-27b"
+      "container_id": "qwen3.8-27b",
+      "sparkrun_id": "qwen3.8-27b"
     }
   ]
 }
 ```
 
-For `sparkrun_*` types the `container` value is the recipe/target name passed to
-`sparkrun logs <target>` (the log viewer queries sparkrun instead of `docker logs`).
-The `sparkrun_path` top-level key tells the API where that executable lives.
+For `sparkrun_*` types the `sparkrun_id` is the recipe/target name passed to
+`sparkrun status`/`sparkrun logs <target>` (the log viewer queries sparkrun instead of
+`docker logs`). The `sparkrun_path` top-level key tells the API where that executable lives.
+
+### How running/starting state is detected
+
+The API reports each LLM as `running`, `starting`, or `stopped`:
+
+- **running** — the model name (the `name` entry in `llms.json`) is served at the
+  OpenAI-compatible `/v1/models` endpoint, i.e. the server is up and the model is loaded.
+- **starting** — the model isn't served yet, but its sparkrun process (`sparkrun status`,
+  for `sparkrun_*` types) or docker container (`docker ps`, for `docker_*` types) is present.
+  This works even if the model was started manually on the command line.
+- **stopped** — no served model and no active sparkrun process / docker container.
 
 ### How throughput is computed
 
