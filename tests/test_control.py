@@ -48,6 +48,14 @@ def test_sparkrun_logs_all(monkeypatch) -> None:
     assert out == "raw"
 
 
+def test_sparkrun_logs_uses_configured_path(monkeypatch) -> None:
+    calls = _patch_run(monkeypatch, _FakeResult(stdout="a\nb\n"))
+    monkeypatch.setattr("llmrunner.control.get_sparkrun_path", lambda: "/opt/bin/sparkrun")
+    out = sparkrun_logs("qwen3.8-27b", 200)
+    assert calls == [["/opt/bin/sparkrun", "logs", "qwen3.8-27b", "-n", "200"]]
+    assert out == "a\nb\n"
+
+
 def test_start_timeout_is_30_minutes() -> None:
     assert START_TIMEOUT_S == 30 * 60
 

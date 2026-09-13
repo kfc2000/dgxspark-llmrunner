@@ -8,9 +8,15 @@ from pathlib import Path
 VALID_TYPES = {"docker_vllm", "docker_sglang", "sparkrun_vllm", "sparkrun_sglang"}
 SPARKRUN_TYPES = {"sparkrun_vllm", "sparkrun_sglang"}
 
+SPARKRUN_PATH: str = os.environ.get("SPARKRUN_PATH", "sparkrun")
+
 
 def is_sparkrun_type(llm_type: str) -> bool:
     return llm_type in SPARKRUN_TYPES
+
+
+def get_sparkrun_path() -> str:
+    return SPARKRUN_PATH
 
 DEFAULT_CONFIG_PATH = os.environ.get("LLMRUNNER_CONFIG", "llms.json")
 
@@ -35,6 +41,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> list[LLMConfig]:
+    global SPARKRUN_PATH
     path = Path(path)
     if not path.is_absolute():
         candidates = [path, _REPO_ROOT / path]
@@ -45,6 +52,9 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> list[LLMConfig]:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as exc:
         raise ConfigError(f"{path}: invalid JSON: {exc}") from exc
+
+    if isinstance(data, dict) and data.get("sparkrun_path"):
+        SPARKRUN_PATH = str(data["sparkrun_path"])
 
     entries = data.get("llms") if isinstance(data, dict) else data
     if not isinstance(entries, list):

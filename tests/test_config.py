@@ -95,3 +95,14 @@ def test_is_sparkrun_type() -> None:
     assert config.is_sparkrun_type("sparkrun_sglang")
     assert not config.is_sparkrun_type("docker_vllm")
     assert not config.is_sparkrun_type("docker_sglang")
+
+
+def test_sparkrun_path_from_config(tmp_path) -> None:
+    p = tmp_path / "llms.json"
+    p.write_text(json.dumps({"sparkrun_path": "/opt/bin/sparkrun", "llms": []}))
+    original = config.SPARKRUN_PATH
+    try:
+        config.load_config(p)
+        assert config.get_sparkrun_path() == "/opt/bin/sparkrun"
+    finally:
+        config.SPARKRUN_PATH = original

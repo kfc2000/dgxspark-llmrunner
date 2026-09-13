@@ -43,9 +43,11 @@ Every entry needs:
 | `stop_script` | Bash command run to stop the server |
 | `endpoint` | (optional, default `http://localhost:8000`) base URL of the OpenAI-compatible server; metrics are read from `<endpoint>/metrics` |
 | `container` | (optional) for `docker_*` types, the docker container name — enables status checks and the log viewer. For `sparkrun_*` types it holds the recipe/target name passed to `sparkrun logs` |
+| `sparkrun_path` | (optional, top-level) absolute path to the `sparkrun` executable. Defaults to `sparkrun` on `PATH` (or the `SPARKRUN_PATH` env var). Set this if the service can't find `sparkrun` |
 
 ```json
 {
+  "sparkrun_path": "/usr/local/bin/sparkrun",
   "llms": [
     {
       "name": "qwen3-32b",
@@ -71,6 +73,7 @@ Every entry needs:
 
 For `sparkrun_*` types the `container` value is the recipe/target name passed to
 `sparkrun logs <target>` (the log viewer queries sparkrun instead of `docker logs`).
+The `sparkrun_path` top-level key tells the API where that executable lives.
 
 ### How throughput is computed
 

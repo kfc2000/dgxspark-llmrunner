@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 
-from llmrunner.config import LLMConfig, is_sparkrun_type
+from llmrunner.config import LLMConfig, get_sparkrun_path, is_sparkrun_type
 
 
 class ControlError(Exception):
@@ -32,7 +32,7 @@ def _docker(args: list[str], timeout: float = 15.0, merge_stderr: bool = False) 
 
 
 def _sparkrun(args: list[str], timeout: float = 15.0, merge_stderr: bool = False) -> str:
-    return _run_cmd(["sparkrun", *args], timeout, merge_stderr)
+    return _run_cmd([get_sparkrun_path(), *args], timeout, merge_stderr)
 
 
 def container_status(name: str) -> str | None:
