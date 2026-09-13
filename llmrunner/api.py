@@ -18,6 +18,9 @@ WEB_DIR = REPO_ROOT / "web"
 app = FastAPI(title="DGX Spark LLM Runner API")
 sampler = get_sampler()
 tracker = llm_metrics.get_tracker()
+# Token throughput is scraped in the background every 1s so the history stays
+# smooth; /api/llms only reads the cached rates and does the 5s status check.
+tracker.start_collecting(config.load_config, interval_s=1.0)
 
 
 def _clean(value):
@@ -100,7 +103,7 @@ def api_llms() -> dict:
     for llm in _load_llms():
         status, detail = control.llm_status(llm)
         running = status != "stopped"
-        rates = tracker.scrape(llm.name, llm.endpoint) if running else None
+        rates = tracker.latest(llm.name)
         reachable = bool(rates and rates.reachable)
         out.append({
             "name": llm.name,

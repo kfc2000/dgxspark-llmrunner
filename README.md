@@ -25,6 +25,7 @@ page for:
 | `llmrunner/config.py` | Loads/validates `llms.json` |
 | `llmrunner/hw_metrics.py` | NVML (GPU) + psutil + `/sys/class/hwmon` (CPU temp/power) probes |
 | `llmrunner/sampler.py` | Background thread collecting hardware samples (history ring buffer) |
+| `llmrunner/llm_metrics.py` | Prometheus parser + rate computer; background thread scrapes token throughput every 1s |
 | `llmrunner/llm_metrics.py` | Prometheus parser + rate computer for token throughput |
 | `llmrunner/control.py` | Docker status, container logs, bash script runner |
 | `install.sh` | One-shot installer for the Spark (venv + rsync + systemd) |
@@ -92,12 +93,18 @@ The API reports each LLM as `running`, `starting`, or `stopped`:
 ### How throughput is computed
 
 vLLM and SGLang expose cumulative counters (`vllm:prompt_tokens_total`,
-`vllm:generation_tokens_total`, `sglang:*`, …). The app scrapes `/metrics` repeatedly and
-computes per-second deltas:
+`vllm:generation_tokens_total`, `sglang:*`, …). A background thread scrapes each
+server's `/metrics` every 1s and computes per-second deltas, independent of the 5s
+status poll, so the throughput history stays smooth:
 
-- **Decode tok/s** = Δ generation tokens / Δ time
+- **Decode tok/s** = Δ generation tokens / Δ time (vLLM). For SGLang the live
+  `sglang:gen_throughput` gauge (tokens/s) is read directly, since SGLang only bumps
+  `generation_tokens_total` when a request finishes and would otherwise read 0 during
+  a stream.
 - **Prefill tok/s** = Δ prompt tokens / Δ `vllm:request_prefill_time_seconds_sum`
-  (falls back to Δ prompt tokens / Δ time when the timer isn't exposed)
+  (falls back to Δ prompt tokens / Δ time when the timer isn't exposed). SGLang
+  exposes no prefill-time timer, so it uses `sglang:prefill_effective_tokens_total`
+  deltas (updated per log interval) instead.
 
 Metrics only move while the server is actually generating; idle servers read 0.
 
