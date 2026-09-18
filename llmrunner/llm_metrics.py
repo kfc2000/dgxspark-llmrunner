@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import requests
 
@@ -104,6 +104,7 @@ class LlmRates:
     total_generated: float | None = None
     error: str = ""
     history: deque = None  # type: ignore[assignment]
+    debug: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.history is None:
@@ -255,6 +256,16 @@ class LlmMetricTracker:
             rates.error = ""
             rates.running_requests = running
             rates.total_generated = generated
+            rates.debug = {
+                "rt_decode": rt_decode,
+                "rt_prefill": rt_prefill,
+                "gen_tps": gen_tps,
+                "prefill_eff": prefill_eff,
+                "prompt": prompt,
+                "generated": generated,
+                "prev_rt_decode": None if prev is None else prev[1].get("rt_decode"),
+                "dt": dt,
+            }
             if decode_tps is not None or prefill_tps is not None:
                 rates.decode_tps = decode_tps if decode_tps is not None else 0.0
                 rates.prefill_tps = prefill_tps if prefill_tps is not None else 0.0

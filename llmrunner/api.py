@@ -104,6 +104,7 @@ def _metrics_payload(rates, reachable: bool) -> dict:
         "running_requests": rates.running_requests if reachable else None,
         "history": [{"ts": p["ts"], "decode_tps": p["decode_tps"],
                      "prefill_tps": p["prefill_tps"]} for p in rates.history] if reachable else [],
+        "debug": rates.debug,
     }
 
 
