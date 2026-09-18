@@ -185,7 +185,6 @@ function renderLlms(data) {
 
   renderLoadList($("#loadModal").hidden ? "" : $("#loadSearch").value);
   renderHero(byName(selected));
-  renderServerBar();
 }
 function renderLoadList(filter = "") {
   const list = $("#loadList");
@@ -349,69 +348,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeLoadModal();
 });
 
-function runningLlm() {
-  return llmList.find((l) => l.status === "running" || l.status === "starting");
-}
-function renderServerBar() {
-  const llm = runningLlm();
-  if (!llm) {
-    $("#srvDetail").textContent = "No model is running";
-    return;
-  }
-  $("#srvDetail").textContent =
-    `${heroState(llm)[1]} — ${llm.detail} — ${llm.endpoint}` +
-    (llm.container_id ? ` — ${llm.container_id}` : "");
-}
-
-/* ---------- logs ---------- */
-let logsStick = true;
-$("#logs").addEventListener("scroll", function () {
-  logsStick = this.scrollTop + this.clientHeight >= this.scrollHeight - 40;
-});
-async function fetchLogs(scrollToBottom = false) {
-  const llm = runningLlm();
-  if (!llm) {
-    $("#logs").textContent = "No model is running";
-    $("#logsMeta").textContent = "";
-    return;
-  }
-  if (!llm.container_id) {
-    $("#logs").textContent = "no 'container_id' configured for this model";
-    return;
-  }
-  try {
-    const r = await jget(`/api/logs?name=${encodeURIComponent(llm.name)}&tail=${$("#logTail").value}`);
-    const pre = $("#logs");
-    pre.textContent = r.logs || "(no output)";
-    $("#logsMeta").textContent = `${r.lines} lines · ${llm.container_id}`;
-    if (scrollToBottom || logsStick) pre.scrollTop = pre.scrollHeight;
-  } catch (e) {
-    $("#logs").textContent = e.message;
-    $("#logsMeta").textContent = "";
-  }
-}
-$("#logRefresh").addEventListener("click", () => fetchLogs(true));
-$("#logTail").addEventListener("change", () => fetchLogs(true));
-let logsTimer = null;
-function logsTick() {
-  if (!$("#viewServers").hidden && $("#logAuto").checked) fetchLogs(false);
-}
-
-/* ---------- view switching ---------- */
-function setView(v) {
-  $("#viewDash").hidden = v !== "dash";
-  $("#viewServers").hidden = v !== "servers";
-  $("#navDash").classList.toggle("active", v === "dash");
-  $("#navServers").classList.toggle("active", v === "servers");
-  if (v === "servers") fetchLogs(true);
-}
-$("#navDash").addEventListener("click", () => setView("dash"));
-$("#navServers").addEventListener("click", () => setView("servers"));
-$("#footLink").addEventListener("click", (e) => {
-  e.preventDefault();
-  setView("servers");
-});
-
 /* ---------- main polling loop ---------- */
 async function pollHw() {
   if (pollingHw) return;
@@ -464,4 +400,3 @@ pollNow();
 setInterval(pollHw, 1000);
 setInterval(pollLlms, 5000);
 setInterval(pollMetrics, 1000);
-logsTimer = setInterval(logsTick, 5000);
