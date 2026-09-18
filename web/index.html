@@ -28,17 +28,15 @@
 
     <section class="card llm">
       <div class="side">
-        <details class="select model-title" id="modelSelect">
-          <summary>
-            <span class="dot" id="selDot"></span>
-            <span id="selName">—</span>
-            <span class="tag" id="selTag"></span>
-            <span class="caret"></span>
-          </summary>
+        <div class="model-title select" id="modelSelect">
+          <span class="dot" id="selDot"></span>
+          <span id="selName">—</span>
+          <span class="tag" id="selTag"></span>
+          <button class="btn change" id="btnChangeModel" hidden>Change</button>
           <div class="menu" role="listbox" id="modelMenu">
             <div class="group">Available models</div>
           </div>
-        </details>
+        </div>
         <div class="actions">
           <span class="status stopped" id="statusPill"><i></i> <span id="statusText">—</span></span>
           <button class="btn primary" id="btnStart" hidden>Start</button>

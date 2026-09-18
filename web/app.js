@@ -183,41 +183,50 @@ function renderLlms(data) {
     localStorage.setItem("llmrunner-model", selected);
   }
 
-  renderMenu("#modelMenu", 'name="model"', selected, "#selName, #selDot, #selTag");
+  renderMenu("#modelMenu", 'name="model"', selected);
   renderHero(byName(selected));
   renderServerBar();
 }
-function renderMenu(menuSel, radioName, current, targets) {
+function renderMenu(menuSel, radioName, current) {
   const menu = $(menuSel);
   menu.querySelectorAll(".opt").forEach((n) => n.remove());
   const frag = document.createDocumentFragment();
   llmList.forEach((llm) => {
     const label = document.createElement("label");
     label.className = "opt";
-    const st = heroState(llm);
     const ep = llm.endpoint.replace(/^https?:\/\//, "") + " · " + llm.type;
     label.innerHTML =
       `<input type="radio" ${radioName} value="${esc(llm.name)}" ${llm.name === current ? "checked" : ""}>` +
-      `<span class="dot ${llm.running ? "on" : ""}"></span>` +
-      `<span><span class="name">${esc(llm.name)}</span><br><span class="ep">${esc(ep)}</span></span>` +
-      `<span class="state ${st[0]}">${st[1]}</span>`;
-    label.querySelector("input").addEventListener("change", () => {
-      selected = llm.name;
-      localStorage.setItem("llmrunner-model", selected);
-      $(menuSel).closest("details").removeAttribute("open");
-      pollNow();
-    });
+      `<span class="name">${esc(llm.name)}</span>` +
+      `<span class="ep">${esc(ep)}</span>`;
+    label.querySelector("input").addEventListener("change", () => chooseModel(llm.name));
     frag.appendChild(label);
   });
   const hint = menu.querySelector(".hint");
   menu.insertBefore(frag, hint || null);
+}
+function chooseModel(name) {
+  if (busy) return;
+  const changed = name !== selected;
+  selected = name;
+  localStorage.setItem("llmrunner-model", selected);
+  $("#modelSelect").classList.remove("open");
+  pollNow();
+  const target = byName(name);
+  if (changed && target && target.status === "stopped") llmAction(name, "start");
+}
+function setChangeEnabled() {
+  const llm = byName(selected);
+  const en = llm && llm.status !== "starting" && !busy && llmList.length > 1;
+  $("#btnChangeModel").hidden = llmList.length <= 1;
+  $("#btnChangeModel").disabled = !en;
 }
 function renderHero(llm) {
   const st = heroState(llm);
   $("#selName").textContent = llm.name;
   $("#selName").title = llm.name;
   $("#selTag").textContent = llm.type;
-  $("#selDot").classList.toggle("on", llm.running);
+  $("#selDot").classList.toggle("on", llm.status === "running");
   const pill = $("#statusPill");
   pill.className = "status " + st[0];
   $("#statusText").textContent = st[1];
@@ -225,6 +234,7 @@ function renderHero(llm) {
   $("#btnStop").hidden = !llm.running;
   $("#btnReload").hidden = !llm.running;
   $("#btnStart").textContent = llmList.some((o) => o !== llm && o.running) ? "Swap & Start" : "Start";
+  setChangeEnabled();
   renderThroughput(llm);
 }
 function renderThroughput(llm) {
@@ -312,6 +322,7 @@ async function llmAction(name, action) {
   const other = action === "start" ? $("#btnStop") : $("#btnStart");
   btn.classList.add("busy");
   other.disabled = true;
+  $("#btnChangeModel").disabled = true;
   try {
     const r = await jpost(`/api/llms/${encodeURIComponent(name)}/${action}`);
     toast(`${action} ${name}: ${r.ok ? "ok" : "failed"}${r.output ? "\n" + r.output.slice(-500) : ""}`, !r.ok);
@@ -328,6 +339,13 @@ async function llmAction(name, action) {
 $("#btnStart").addEventListener("click", () => llmAction(selected, "start"));
 $("#btnStop").addEventListener("click", () => llmAction(selected, "stop"));
 $("#btnReload").addEventListener("click", () => pollNow());
+$("#btnChangeModel").addEventListener("click", (e) => {
+  e.stopPropagation();
+  $("#modelSelect").classList.toggle("open");
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#modelSelect")) $("#modelSelect").classList.remove("open");
+});
 
 function runningLlm() {
   return llmList.find((l) => l.status === "running" || l.status === "starting");
