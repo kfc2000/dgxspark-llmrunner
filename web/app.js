@@ -231,7 +231,9 @@ function renderHero(llm) {
   const pill = $("#statusPill");
   pill.className = "status " + st[0];
   $("#statusText").textContent = st[1];
-  $("#btnStop").hidden = !llm.running;
+  const running = llm.status !== "stopped";
+  $("#btnLoadModel").hidden = running;
+  $("#btnStop").hidden = !running;
   setLoadEnabled();
   renderThroughput(llm);
 }
@@ -314,7 +316,6 @@ function renderHw(hw) {
 
 /* ---------- start / stop ---------- */
 async function llmAction(name, action) {
-  if (busy) return;
   busy = true;
   $("#btnLoadModel").disabled = true;
   if (action === "stop") $("#btnStop").classList.add("busy");
