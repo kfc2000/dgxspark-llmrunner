@@ -190,14 +190,9 @@ header {
   padding: 9px 10px; border-radius: 9px; cursor: pointer;
 }
 .load-item:hover { background: var(--hover); }
-.load-item.current {
-  background: linear-gradient(180deg, var(--sel-bg-1), var(--sel-bg-2));
-  outline: 1px solid var(--sel-border);
-}
 .load-item .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
 .load-item .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 .load-item .name { font-size: 13.5px; font-weight: 600; }
-.load-item.current .name { color: var(--accent); }
 .load-item .ep { font-size: 11.5px; color: var(--faint); font-weight: 450; grid-column: 2; }
 .load-empty { font-size: 12.5px; color: var(--faint); padding: 16px 10px; text-align: center; }
 

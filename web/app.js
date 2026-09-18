@@ -196,7 +196,7 @@ function renderLoadList(filter = "") {
     if (q && !(llm.name.toLowerCase().includes(q) || llm.type.toLowerCase().includes(q))) return;
     const item = document.createElement("button");
     item.type = "button";
-    item.className = "load-item" + (llm.name === selected ? " current" : "");
+    item.className = "load-item";
     const ep = llm.endpoint.replace(/^https?:\/\//, "") + " · " + llm.type;
     item.innerHTML =
       `<span class="dot ${llm.status === "running" ? "on" : ""}"></span>` +
@@ -215,13 +215,11 @@ function renderLoadList(filter = "") {
 }
 function chooseModel(name) {
   if (busy) return;
-  const changed = name !== selected;
   selected = name;
   localStorage.setItem("llmrunner-model", selected);
   closeLoadModal();
   pollNow();
-  const target = byName(name);
-  if (changed && target && target.status === "stopped") llmAction(name, "start");
+  llmAction(name, "start");
 }
 function setLoadEnabled() {
   $("#btnLoadModel").disabled = busy;
