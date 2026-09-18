@@ -224,9 +224,7 @@ function chooseModel(name) {
   if (changed && target && target.status === "stopped") llmAction(name, "start");
 }
 function setLoadEnabled() {
-  const llm = byName(selected);
-  const en = llm && llm.status !== "starting" && !busy;
-  $("#btnLoadModel").disabled = !en;
+  $("#btnLoadModel").disabled = busy;
 }
 function renderHero(llm) {
   const st = heroState(llm);

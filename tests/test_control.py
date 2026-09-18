@@ -197,7 +197,7 @@ def test_llm_status_docker_stopped_when_container_absent(monkeypatch) -> None:
     assert "not running" in detail
 
 
-def test_llm_status_docker_starting_when_endpoint_responds(monkeypatch) -> None:
+def test_llm_status_docker_stopped_when_only_endpoint_responds(monkeypatch) -> None:
     llm = LLMConfig(
         name="a",
         type="docker_vllm",
@@ -210,8 +210,8 @@ def test_llm_status_docker_starting_when_endpoint_responds(monkeypatch) -> None:
     monkeypatch.setattr("llmrunner.control.container_status", lambda name: None)
     monkeypatch.setattr("llmrunner.control.endpoint_alive", lambda ep: True)
     state, detail = llm_status(llm)
-    assert state == "starting"
-    assert "model not served" in detail
+    assert state == "stopped"
+    assert "not running" in detail
 
 
 def test_llm_status_docker_stopped_when_container_exited(monkeypatch) -> None:

@@ -35,13 +35,21 @@ def _sparkrun(args: list[str], timeout: float = 15.0, merge_stderr: bool = False
     return _run_cmd([get_sparkrun_path(), *args], timeout, merge_stderr)
 
 
-def container_status(name: str) -> str | None:
+def container_status(target: str) -> str | None:
+    """Return the docker status line for the container matching ``target`` by
+    name or id (including an abbreviated id), or None if it is not present."""
     try:
-        out = _docker(["ps", "-a", "--filter", f"name=^{name}$", "--format", "{{.Status}}"])
+        out = _docker(["ps", "-a", "--format", "{{.ID}}\t{{.Names}}\t{{.Status}}"])
     except ControlError:
         return None
-    line = out.strip().splitlines()
-    return line[0] if line else None
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        cid, cname, status = parts
+        if target in (cid, cname) or cid.startswith(target):
+            return status
+    return None
 
 
 def container_logs(name: str, tail: int | None = 300) -> str:
@@ -120,9 +128,10 @@ def container_active(name: str) -> bool:
 def llm_status(llm: LLMConfig) -> tuple[str, str]:
     """Return (state, detail) where state is 'running', 'starting', or 'stopped'.
 
-    'running' means the model name is served at the /v1/models endpoint;
-    'starting' means the LLM's sparkrun process or docker container is present
-    but the model isn't ready yet.
+    A model is 'running' when its name is served at the /v1/models endpoint.
+    It is 'starting' when its container or sparkrun process is up, but the model
+    is not yet served (a 404, an empty /v1/models response, or an error).
+    Otherwise it is 'stopped'.
     """
     if model_available(llm.endpoint, llm.name):
         return "running", "model served at /v1/models"
@@ -133,8 +142,6 @@ def llm_status(llm: LLMConfig) -> tuple[str, str]:
             return "starting", container_status(llm.container_id) or "container present"
     elif llm.container_id and container_active(llm.container_id):
         return "starting", container_status(llm.container_id) or "container present"
-    if endpoint_alive(llm.endpoint):
-        return "starting", "endpoint responding but model not served"
     return "stopped", "not running"
 
 

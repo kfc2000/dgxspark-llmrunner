@@ -147,9 +147,12 @@ header {
 }
 
 /* ---------- load model modal ---------- */
-.modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
 .modal[hidden] { display: none; }
-.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.modal-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.55); }
 .modal-dialog {
   position: relative;
   width: min(540px, 92vw);
