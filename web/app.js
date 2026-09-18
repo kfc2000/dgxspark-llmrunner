@@ -183,43 +183,50 @@ function renderLlms(data) {
     localStorage.setItem("llmrunner-model", selected);
   }
 
-  renderMenu("#modelMenu", 'name="model"', selected);
+  renderLoadList($("#loadModal").hidden ? "" : $("#loadSearch").value);
   renderHero(byName(selected));
   renderServerBar();
 }
-function renderMenu(menuSel, radioName, current) {
-  const menu = $(menuSel);
-  menu.querySelectorAll(".opt").forEach((n) => n.remove());
+function renderLoadList(filter = "") {
+  const list = $("#loadList");
+  list.innerHTML = "";
+  const q = filter.trim().toLowerCase();
   const frag = document.createDocumentFragment();
   llmList.forEach((llm) => {
-    const label = document.createElement("label");
-    label.className = "opt";
+    if (q && !(llm.name.toLowerCase().includes(q) || llm.type.toLowerCase().includes(q))) return;
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "load-item" + (llm.name === selected ? " current" : "");
     const ep = llm.endpoint.replace(/^https?:\/\//, "") + " · " + llm.type;
-    label.innerHTML =
-      `<input type="radio" ${radioName} value="${esc(llm.name)}" ${llm.name === current ? "checked" : ""}>` +
+    item.innerHTML =
+      `<span class="dot ${llm.status === "running" ? "on" : ""}"></span>` +
       `<span class="name">${esc(llm.name)}</span>` +
       `<span class="ep">${esc(ep)}</span>`;
-    label.querySelector("input").addEventListener("change", () => chooseModel(llm.name));
-    frag.appendChild(label);
+    item.addEventListener("click", () => chooseModel(llm.name));
+    frag.appendChild(item);
   });
-  const hint = menu.querySelector(".hint");
-  menu.insertBefore(frag, hint || null);
+  if (!frag.childNodes.length) {
+    const empty = document.createElement("div");
+    empty.className = "load-empty";
+    empty.textContent = "No models match";
+    frag.appendChild(empty);
+  }
+  list.appendChild(frag);
 }
 function chooseModel(name) {
   if (busy) return;
   const changed = name !== selected;
   selected = name;
   localStorage.setItem("llmrunner-model", selected);
-  $("#modelSelect").classList.remove("open");
+  closeLoadModal();
   pollNow();
   const target = byName(name);
   if (changed && target && target.status === "stopped") llmAction(name, "start");
 }
-function setChangeEnabled() {
+function setLoadEnabled() {
   const llm = byName(selected);
-  const en = llm && llm.status !== "starting" && !busy && llmList.length > 1;
-  $("#btnChangeModel").hidden = llmList.length <= 1;
-  $("#btnChangeModel").disabled = !en;
+  const en = llm && llm.status !== "starting" && !busy;
+  $("#btnLoadModel").disabled = !en;
 }
 function renderHero(llm) {
   const st = heroState(llm);
@@ -234,7 +241,7 @@ function renderHero(llm) {
   $("#btnStop").hidden = !llm.running;
   $("#btnReload").hidden = !llm.running;
   $("#btnStart").textContent = llmList.some((o) => o !== llm && o.running) ? "Swap & Start" : "Start";
-  setChangeEnabled();
+  setLoadEnabled();
   renderThroughput(llm);
 }
 function renderThroughput(llm) {
@@ -322,7 +329,7 @@ async function llmAction(name, action) {
   const other = action === "start" ? $("#btnStop") : $("#btnStart");
   btn.classList.add("busy");
   other.disabled = true;
-  $("#btnChangeModel").disabled = true;
+  $("#btnLoadModel").disabled = true;
   try {
     const r = await jpost(`/api/llms/${encodeURIComponent(name)}/${action}`);
     toast(`${action} ${name}: ${r.ok ? "ok" : "failed"}${r.output ? "\n" + r.output.slice(-500) : ""}`, !r.ok);
@@ -339,12 +346,21 @@ async function llmAction(name, action) {
 $("#btnStart").addEventListener("click", () => llmAction(selected, "start"));
 $("#btnStop").addEventListener("click", () => llmAction(selected, "stop"));
 $("#btnReload").addEventListener("click", () => pollNow());
-$("#btnChangeModel").addEventListener("click", (e) => {
-  e.stopPropagation();
-  $("#modelSelect").classList.toggle("open");
-});
-document.addEventListener("click", (e) => {
-  if (!e.target.closest("#modelSelect")) $("#modelSelect").classList.remove("open");
+function openLoadModal() {
+  $("#loadModal").hidden = false;
+  $("#loadSearch").value = "";
+  renderLoadList();
+  $("#loadSearch").focus();
+}
+function closeLoadModal() {
+  $("#loadModal").hidden = true;
+}
+$("#btnLoadModel").addEventListener("click", openLoadModal);
+$("#loadModalClose").addEventListener("click", closeLoadModal);
+$("#loadModalBackdrop").addEventListener("click", closeLoadModal);
+$("#loadSearch").addEventListener("input", () => renderLoadList($("#loadSearch").value));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeLoadModal();
 });
 
 function runningLlm() {

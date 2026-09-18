@@ -28,14 +28,11 @@
 
     <section class="card llm">
       <div class="side">
-        <div class="model-title select" id="modelSelect">
+        <div class="model-title">
           <span class="dot" id="selDot"></span>
           <span id="selName">—</span>
           <span class="tag" id="selTag"></span>
-          <button class="btn change" id="btnChangeModel" hidden>Change</button>
-          <div class="menu" role="listbox" id="modelMenu">
-            <div class="group">Available models</div>
-          </div>
+          <button class="btn load" id="btnLoadModel">Load Model</button>
         </div>
         <div class="actions">
           <span class="status stopped" id="statusPill"><i></i> <span id="statusText">—</span></span>
@@ -116,6 +113,19 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal" id="loadModal" hidden>
+  <div class="modal-backdrop" id="loadModalBackdrop"></div>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-label="Load Model">
+    <div class="modal-head">
+      <span class="modal-title">Load Model</span>
+      <button class="modal-close" id="loadModalClose" title="Close">×</button>
+    </div>
+    <input class="modal-search" id="loadSearch" type="search" placeholder="Search models…" autocomplete="off">
+    <div class="modal-list" id="loadList"></div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>
