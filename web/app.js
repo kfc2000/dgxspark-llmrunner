@@ -228,17 +228,13 @@ function setLoadEnabled() {
 }
 function renderHero(llm) {
   const st = heroState(llm);
-  $("#selName").textContent = llm.name;
+  $("#selName").textContent = llm.status === "stopped" ? "No model" : llm.name;
   $("#selName").title = llm.name;
-  $("#selTag").textContent = llm.type;
   $("#selDot").classList.toggle("on", llm.status === "running");
   const pill = $("#statusPill");
   pill.className = "status " + st[0];
   $("#statusText").textContent = st[1];
-  $("#btnStart").hidden = llm.running;
   $("#btnStop").hidden = !llm.running;
-  $("#btnReload").hidden = !llm.running;
-  $("#btnStart").textContent = llmList.some((o) => o !== llm && o.running) ? "Swap & Start" : "Start";
   setLoadEnabled();
   renderThroughput(llm);
 }
@@ -323,27 +319,21 @@ function renderHw(hw) {
 async function llmAction(name, action) {
   if (busy) return;
   busy = true;
-  const btn = action === "start" ? $("#btnStart") : $("#btnStop");
-  const other = action === "start" ? $("#btnStop") : $("#btnStart");
-  btn.classList.add("busy");
-  other.disabled = true;
   $("#btnLoadModel").disabled = true;
+  if (action === "stop") $("#btnStop").classList.add("busy");
   try {
     const r = await jpost(`/api/llms/${encodeURIComponent(name)}/${action}`);
     toast(`${action} ${name}: ${r.ok ? "ok" : "failed"}${r.output ? "\n" + r.output.slice(-500) : ""}`, !r.ok);
   } catch (e) {
     toast(`${action} ${name}: ${e.message}`, true);
   }
-  btn.classList.remove("busy");
-  other.disabled = false;
+  if (action === "stop") $("#btnStop").classList.remove("busy");
   busy = false;
   await pollNow();
   setTimeout(pollNow, 3000);
   setTimeout(pollNow, 8000);
 }
-$("#btnStart").addEventListener("click", () => llmAction(selected, "start"));
 $("#btnStop").addEventListener("click", () => llmAction(selected, "stop"));
-$("#btnReload").addEventListener("click", () => pollNow());
 function openLoadModal() {
   $("#loadModal").hidden = false;
   $("#loadSearch").value = "";

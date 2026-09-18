@@ -138,13 +138,8 @@ header {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.model-title .btn.load { flex: none; font-size: 12.5px; padding: 5px 12px; }
 .model-title .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 .model-title .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.model-title .tag {
-  font-size: 10px; font-weight: 600; letter-spacing: .5px;
-  color: var(--faint); text-transform: uppercase;
-}
 
 /* ---------- load model modal ---------- */
 .modal {
